@@ -1,0 +1,25 @@
+{
+  "brand": "TypeAhead",
+  "heroTitle": "Search suggestions with live results and simple runtime insight.",
+  "heroDescription": "Search, submit, and inspect the system without extra noise.",
+  "commandLabel": "Command surface",
+  "commandTitle": "Search with fast feedback.",
+  "searchPlaceholder": "Type a prefix to load live suggestions.",
+  "emptySuggestions": "Start typing.",
+  "readyMessage": "Ready.",
+  "defaultQuery": "search typeahead architecture",
+  "defaultCachePrefix": "search",
+  "suggestLimit": 10,
+  "trendingLimit": 8,
+  "cacheDebugLimit": 10,
+  "docsLinks": [
+    {
+      "label": "Swagger UI",
+      "href": "http://localhost:8080/swagger-ui.html"
+    },
+    {
+      "label": "OpenAPI JSON",
+      "href": "http://localhost:8080/v3/api-docs"
+    }
+  ]
+}

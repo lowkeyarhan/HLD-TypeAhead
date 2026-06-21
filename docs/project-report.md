@@ -41,7 +41,7 @@ flowchart LR
 
 The delivered runtime shape is:
 
-1. The browser reaches the frontend through Caddy over HTTPS.
+1. The browser reaches the frontend through Caddy over `https://localhost`.
 2. Caddy reverse proxies the request to the Next.js app.
 3. The browser talks only to the Next.js app.
 4. Next.js route handlers under `client/app/api/*` proxy those calls to the Spring Boot backend.
@@ -226,22 +226,22 @@ Trade-off:
 - One extra hop through the Next server.
 - Slightly more code than direct `fetch("http://localhost:8080/...")`.
 
-### 4.2 Keep the existing frontend surface, replace only the data flow
+### 4.2 Keep the frontend minimal, but split responsibilities cleanly
 
 Choice:
 
-- Preserved the existing page layout and interaction pattern, but replaced static arrays with live API-backed state.
+- Kept the same minimal screen, but split it into focused React components and one dashboard hook.
 
 Why:
 
-- Lower blast radius.
-- Keeps the user-facing design intact.
-- Focuses this change on integration rather than unrelated redesign.
+- The page is easier to read and maintain.
+- UI rendering and data orchestration are separated.
+- Static UI copy now lives in JSON under `client/data`.
 
 Trade-off:
 
-- The page still carries a large single-file UI implementation.
-- A deeper refactor into smaller components would be cleaner, but it was not required to complete the integration safely.
+- There are more files in the frontend module.
+- The structure is slightly heavier than a single page file, but much easier to extend safely.
 
 ### 4.3 Use backend metrics as the source of truth
 

@@ -151,27 +151,19 @@ This reduces write pressure on PostgreSQL.
 
 When the Docker stack is running, open:
 
-- `https://typeahead.localhost`
+- `https://localhost`
 
 This is the main frontend URL.
-
-Fallback URL:
-
-- `https://localhost`
 
 ### HTTP redirect
 
 This URL:
 
-- `http://typeahead.localhost`
+- `http://localhost`
 
 redirects to:
 
-- `https://typeahead.localhost`
-
-Also supported:
-
-- `http://localhost` -> `https://localhost`
+- `https://localhost`
 
 ### How HTTPS is enforced
 
@@ -189,11 +181,11 @@ Behavior:
 2. redirect HTTP to HTTPS
 3. reverse proxy HTTPS traffic to the internal Next.js client container
 
-Why `typeahead.localhost`:
+Why `localhost`:
 
-- `.localhost` is reserved for local loopback
-- it works better than `localhost.typeahead`
-- it avoids needing a custom public domain for local development
+- it resolves on every local browser without host-file edits
+- it keeps the HTTPS setup simple
+- it avoids browser-specific issues with custom loopback aliases
 
 ### Local certificate note
 
