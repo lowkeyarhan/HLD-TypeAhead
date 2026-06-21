@@ -63,3 +63,23 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+
+---
+# Test profile for offline unit/integration testing
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:postgresql://localhost:5432/testdb
+    driver-class-name: org.postgresql.Driver
+    username: testuser
+    password: testpassword
+    hikari:
+      initialization-fail-timeout: -1
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false

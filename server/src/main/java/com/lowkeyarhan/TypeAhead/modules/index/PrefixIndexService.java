@@ -24,4 +24,7 @@ public interface PrefixIndexService {
 
     // Rebuilds the in-memory prefix index from the database.
     void rebuild();
+
+    // Retrieves all candidates from the index.
+    List<QueryCount> getAllCandidates();
 }

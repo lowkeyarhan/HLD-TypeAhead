@@ -1,12 +1,12 @@
 package com.lowkeyarhan.TypeAhead.modules.index;
 
+import com.lowkeyarhan.TypeAhead.common.metrics.MetricsService;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCount;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCountRepository;
 import com.lowkeyarhan.TypeAhead.modules.ingestion.DatasetLoadedEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -23,10 +23,12 @@ import java.util.stream.Collectors;
 public class PrefixIndexServiceImpl implements PrefixIndexService {
 
     private final QueryCountRepository repository;
+    private final MetricsService metricsService;
     private volatile TreeMap<String, QueryCount> index = new TreeMap<>();
 
-    public PrefixIndexServiceImpl(QueryCountRepository repository) {
+    public PrefixIndexServiceImpl(QueryCountRepository repository, MetricsService metricsService) {
         this.repository = repository;
+        this.metricsService = metricsService;
     }
 
     @Override
@@ -73,6 +75,7 @@ public class PrefixIndexServiceImpl implements PrefixIndexService {
     public synchronized void rebuild() {
         log.info("Rebuilding in-memory prefix index...");
         long startTime = System.currentTimeMillis();
+        metricsService.incrementDbReads(1);
         List<QueryCount> allQueries = repository.findAll();
         TreeMap<String, QueryCount> newIndex = new TreeMap<>();
         for (QueryCount qc : allQueries) {
@@ -88,5 +91,10 @@ public class PrefixIndexServiceImpl implements PrefixIndexService {
     @EventListener
     public void onDatasetLoaded(DatasetLoadedEvent event) {
         rebuild();
+    }
+
+    @Override
+    public List<QueryCount> getAllCandidates() {
+        return new java.util.ArrayList<>(this.index.values());
     }
 }

@@ -1,5 +1,6 @@
 package com.lowkeyarhan.TypeAhead.modules.index;
 
+import com.lowkeyarhan.TypeAhead.common.metrics.MetricsService;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCount;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCountRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,12 +18,14 @@ import static org.mockito.Mockito.when;
 class PrefixIndexServiceTest {
 
     private QueryCountRepository repository;
+    private MetricsService metricsService;
     private PrefixIndexServiceImpl service;
 
     @BeforeEach
     void setUp() {
         repository = Mockito.mock(QueryCountRepository.class);
-        service = new PrefixIndexServiceImpl(repository);
+        metricsService = Mockito.mock(MetricsService.class);
+        service = new PrefixIndexServiceImpl(repository, metricsService);
     }
 
     @Test

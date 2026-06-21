@@ -3,6 +3,8 @@ package com.lowkeyarhan.TypeAhead.modules.suggestion;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCount;
 import com.lowkeyarhan.TypeAhead.modules.index.PrefixIndexService;
 import com.lowkeyarhan.TypeAhead.modules.suggestion.dto.SuggestResultDTO;
+import com.lowkeyarhan.TypeAhead.modules.cache.CacheNodeManager;
+import com.lowkeyarhan.TypeAhead.modules.trending.PopularityRankingStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -17,12 +19,14 @@ import static org.mockito.Mockito.when;
 class SuggestionServiceTest {
 
     private PrefixIndexService prefixIndexService;
+    private CacheNodeManager cacheNodeManager;
     private SuggestionServiceImpl service;
 
     @BeforeEach
     void setUp() {
         prefixIndexService = Mockito.mock(PrefixIndexService.class);
-        service = new SuggestionServiceImpl(prefixIndexService);
+        cacheNodeManager = Mockito.mock(CacheNodeManager.class);
+        service = new SuggestionServiceImpl(prefixIndexService, cacheNodeManager, new PopularityRankingStrategy());
     }
 
     @Test
@@ -30,7 +34,8 @@ class SuggestionServiceTest {
         List<QueryCount> matching = List.of(
                 new QueryCount(1L, "iphone 15", 50L, 0L, null, Instant.now()),
                 new QueryCount(2L, "iphone charger", 20L, 0L, null, Instant.now()));
-        when(prefixIndexService.search("iphone", 10)).thenReturn(matching);
+        Mockito.when(cacheNodeManager.get(Mockito.anyString())).thenReturn(java.util.Optional.empty());
+        Mockito.when(prefixIndexService.search("iphone", Integer.MAX_VALUE)).thenReturn(matching);
 
         List<SuggestResultDTO> results = service.getSuggestions("iphone", 10);
         assertThat(results).hasSize(2);

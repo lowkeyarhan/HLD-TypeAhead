@@ -1,5 +1,6 @@
 package com.lowkeyarhan.TypeAhead.modules.ingestion;
 
+import com.lowkeyarhan.TypeAhead.common.metrics.MetricsService;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCountRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -9,7 +10,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -30,18 +30,21 @@ public class DatasetLoader implements ApplicationRunner {
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
     private final ApplicationEventPublisher publisher;
+    private final MetricsService metricsService;
 
     public DatasetLoader(QueryCountRepository repository, JdbcTemplate jdbcTemplate, Clock clock,
-            ApplicationEventPublisher publisher) {
+            ApplicationEventPublisher publisher, MetricsService metricsService) {
         this.repository = repository;
         this.jdbcTemplate = jdbcTemplate;
         this.clock = clock;
         this.publisher = publisher;
+        this.metricsService = metricsService;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        metricsService.incrementDbReads(1);
         long countInDb = repository.count();
         if (countInDb > 0) {
             log.info("Database already contains {} queries. Skipping ingestion.", countInDb);
@@ -106,6 +109,7 @@ public class DatasetLoader implements ApplicationRunner {
         }
 
         long endTime = System.currentTimeMillis();
+        metricsService.incrementDbWrites(totalInserted);
         log.info("Ingestion completed: loaded {} queries in {} ms.", totalInserted, (endTime - startTime));
 
         // Publish event to trigger index compilation
