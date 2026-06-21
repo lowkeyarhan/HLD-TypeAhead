@@ -42,7 +42,7 @@ services:
 
   client:
     build:
-      context: ./client/typeahead
+      context: ./client
       dockerfile: Dockerfile
     container_name: typeahead-client
     restart: always
@@ -51,7 +51,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - TYPEAHEAD_API_BASE_URL=http://server:8080
 
 volumes:
   postgres_data:
