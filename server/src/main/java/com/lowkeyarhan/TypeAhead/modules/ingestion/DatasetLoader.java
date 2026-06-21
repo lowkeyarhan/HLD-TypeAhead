@@ -4,6 +4,7 @@ import com.lowkeyarhan.TypeAhead.modules.data.QueryCountRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -28,11 +29,14 @@ public class DatasetLoader implements ApplicationRunner {
     private final QueryCountRepository repository;
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
+    private final ApplicationEventPublisher publisher;
 
-    public DatasetLoader(QueryCountRepository repository, JdbcTemplate jdbcTemplate, Clock clock) {
+    public DatasetLoader(QueryCountRepository repository, JdbcTemplate jdbcTemplate, Clock clock,
+            ApplicationEventPublisher publisher) {
         this.repository = repository;
         this.jdbcTemplate = jdbcTemplate;
         this.clock = clock;
+        this.publisher = publisher;
     }
 
     @Override
@@ -41,6 +45,8 @@ public class DatasetLoader implements ApplicationRunner {
         long countInDb = repository.count();
         if (countInDb > 0) {
             log.info("Database already contains {} queries. Skipping ingestion.", countInDb);
+            // Trigger prefix index rebuild even if database already had data on start
+            publisher.publishEvent(new DatasetLoadedEvent(this));
             return;
         }
 
@@ -101,5 +107,8 @@ public class DatasetLoader implements ApplicationRunner {
 
         long endTime = System.currentTimeMillis();
         log.info("Ingestion completed: loaded {} queries in {} ms.", totalInserted, (endTime - startTime));
+
+        // Publish event to trigger index compilation
+        publisher.publishEvent(new DatasetLoadedEvent(this));
     }
 }
