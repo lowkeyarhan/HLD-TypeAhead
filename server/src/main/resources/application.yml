@@ -4,6 +4,13 @@ spring:
   profiles:
     active: local
 
+# Springdoc API documentation configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 # Tunable constants for suggestions, caching, ranking, and batching
 typeahead:
   cache:

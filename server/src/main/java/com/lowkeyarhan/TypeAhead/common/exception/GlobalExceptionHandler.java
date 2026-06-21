@@ -1,4 +1,4 @@
-package com.lowkeyarhan.TypeAhead.modules.common.exception;
+package com.lowkeyarhan.TypeAhead.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

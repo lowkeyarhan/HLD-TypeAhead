@@ -1,4 +1,4 @@
-package com.lowkeyarhan.TypeAhead.modules.common.exception;
+package com.lowkeyarhan.TypeAhead.common.exception;
 
 import org.springframework.http.HttpStatus;
 

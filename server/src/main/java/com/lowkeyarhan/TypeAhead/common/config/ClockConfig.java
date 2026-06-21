@@ -1,4 +1,4 @@
-package com.lowkeyarhan.TypeAhead.modules.common.config;
+package com.lowkeyarhan.TypeAhead.common.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
