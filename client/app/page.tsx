@@ -43,7 +43,6 @@ type CacheDebugResponse = {
 type Metric = {
   label: string;
   value: string;
-  detail: string;
 };
 
 type CacheLookupResult = {
@@ -52,26 +51,10 @@ type CacheLookupResult = {
   prefix: string;
 };
 
-type EndpointItem = {
-  label: string;
-  value: string;
-};
-
 const DEFAULT_QUERY = "search typeahead architecture";
 
 const commandShadowLight =
   "0 7px 15px rgba(0,0,0,0.29), 0 26px 26px rgba(0,0,0,0.26), 0 59px 36px rgba(0,0,0,0.15), 0 106px 42px rgba(0,0,0,0.04), 0 165px 46px rgba(0,0,0,0.01)";
-
-const commandShadowDark =
-  "0 7px 15px rgba(255,255,255,0.29), 0 26px 26px rgba(255,255,255,0.26), 0 59px 36px rgba(255,255,255,0.15), 0 106px 42px rgba(255,255,255,0.04), 0 165px 46px rgba(255,255,255,0.01)";
-
-const endpointItems: EndpointItem[] = [
-  { label: "Suggest", value: "GET /suggest?q=<prefix>&limit=<n>" },
-  { label: "Search", value: "POST /search" },
-  { label: "Trending", value: "GET /trending?limit=<n>" },
-  { label: "Metrics", value: "GET /metrics" },
-  { label: "Cache", value: "GET /cache/debug?prefix=<prefix>" },
-];
 
 function formatCount(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -93,22 +76,18 @@ function buildMetricBlocks(metrics: MetricsResponse | null): Metric[] {
       {
         label: "p95 Latency",
         value: "Pending",
-        detail: "Waiting for backend metrics",
       },
       {
         label: "Cache Hit Rate",
         value: "Pending",
-        detail: "Waiting for backend metrics",
       },
       {
         label: "DB Reads",
         value: "Pending",
-        detail: "Waiting for backend metrics",
       },
       {
         label: "Req / Flush",
         value: "Pending",
-        detail: "Waiting for backend metrics",
       },
     ];
   }
@@ -117,22 +96,18 @@ function buildMetricBlocks(metrics: MetricsResponse | null): Metric[] {
     {
       label: "p95 Latency",
       value: formatLatency(metrics.suggestP95LatencyMs),
-      detail: "Rolling suggest latency from the backend",
     },
     {
       label: "Cache Hit Rate",
       value: formatPercentage(metrics.overallCacheHitRate),
-      detail: "Combined hit rate across logical nodes",
     },
     {
       label: "DB Reads",
       value: formatCount(metrics.dbReadCount),
-      detail: "Repository reads recorded by the backend",
     },
     {
       label: "Req / Flush",
       value: metrics.requestsToFlushesRatio.toFixed(1),
-      detail: `Batch flush pressure, writes: ${formatCount(metrics.dbWriteCount)}`,
     },
   ];
 }
@@ -214,7 +189,7 @@ function Panel({
   );
 }
 
-function MetricCard({ label, value, detail }: Metric) {
+function MetricCard({ label, value }: Metric) {
   return (
     <div
       className="rounded-[16px] p-4 sm:p-5"
@@ -225,9 +200,6 @@ function MetricCard({ label, value, detail }: Metric) {
       </div>
       <div className="mt-2 font-display text-[1.35rem] font-medium text-[hsl(var(--text-primary))] sm:text-[1.65rem]">
         {value}
-      </div>
-      <div className="mt-2 text-[0.9rem] leading-6 text-[hsl(var(--text-muted))]">
-        {detail}
       </div>
     </div>
   );
@@ -257,13 +229,11 @@ function NodeRateRow({ nodeId, rate }: { nodeId: string; rate: number }) {
 function SuggestionRow({
   suggestion,
   selected,
-  isDark,
   onMouseEnter,
   onClick,
 }: {
   suggestion: Suggestion;
   selected: boolean;
-  isDark: boolean;
   onMouseEnter: () => void;
   onClick: () => void;
 }) {
@@ -276,49 +246,39 @@ function SuggestionRow({
       onClick={onClick}
       className="flex w-full items-center justify-between rounded-[16px] px-4 py-3 text-left transition-colors duration-200"
       style={{
-        backgroundColor: selected
-          ? isDark
-            ? "#1F1F1F"
-            : "#FFFFFF"
-          : "transparent",
+        backgroundColor: selected ? "#FFFFFF" : "transparent",
       }}
     >
       <div className="min-w-0">
-        <div className="truncate font-display text-[0.98rem] font-medium text-[hsl(var(--text-inverted))]">
+        <div
+          className="truncate font-display text-[0.98rem] font-medium"
+          style={{
+            color: selected
+              ? "hsl(var(--text-primary))"
+              : "hsl(var(--text-inverted))",
+          }}
+        >
           {suggestion.query}
         </div>
-        <div className="mt-1 text-[0.82rem] text-[hsl(var(--text-muted-inverted))]">
-          Live prefix match from the backend
-        </div>
       </div>
-      <div className="ml-4 rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-1 text-[0.8rem] text-[hsl(var(--text-muted-inverted))]">
+      <div
+        className="ml-4 rounded-full px-3 py-1 text-[0.8rem]"
+        style={{
+          backgroundColor: selected
+            ? "hsl(var(--bg-subtle))"
+            : "rgba(255,255,255,0.08)",
+          color: selected
+            ? "hsl(var(--text-secondary))"
+            : "hsl(var(--text-muted-inverted))",
+        }}
+      >
         {formatCount(suggestion.count)}
       </div>
     </button>
   );
 }
 
-function HeroInfoCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-[20px] p-4 sm:p-5" style={surfaceStyle("glass")}>
-      <div className="text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted-inverted))]">
-        {title}
-      </div>
-      <div className="mt-3 text-[0.92rem] leading-6 text-[hsl(var(--text-inverted))]">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
-  const [isDark, setIsDark] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -326,9 +286,7 @@ export default function App() {
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [submittedQuery, setSubmittedQuery] = useState(DEFAULT_QUERY);
-  const [submissionMessage, setSubmissionMessage] = useState(
-    "Submit a query to register it with the backend.",
-  );
+  const [submissionMessage, setSubmissionMessage] = useState("Ready.");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [trending, setTrending] = useState<Suggestion[]>([]);
@@ -487,7 +445,7 @@ export default function App() {
       setSubmissionError(null);
 
       try {
-        const response = await fetchJson<SearchResponse>("/api/search", {
+        await fetchJson<SearchResponse>("/api/search", {
           method: "POST",
           body: JSON.stringify({ query: finalQuery }),
         });
@@ -495,7 +453,7 @@ export default function App() {
         setSubmittedQuery(finalQuery);
         setQuery(finalQuery);
         setDebouncedQuery(finalQuery);
-        setSubmissionMessage(response.message);
+        setSubmissionMessage("Query submitted.");
         setBackendOnline(true);
         await loadDashboard();
       } catch (error) {
@@ -570,38 +528,26 @@ export default function App() {
   );
 
   const backendStateColor = backendOnline
-    ? isDark
-      ? "hsl(142 70% 52%)"
-      : "hsl(142 71% 45%)"
-    : isDark
-      ? "hsl(0 91% 71%)"
-      : "hsl(0 84% 60%)";
+    ? "hsl(142 71% 45%)"
+    : "hsl(0 84% 60%)";
 
   const cacheStateColor =
-    cacheLookupResult.status === "Hit"
-      ? isDark
-        ? "hsl(142 70% 52%)"
-        : "hsl(142 71% 45%)"
-      : isDark
-        ? "hsl(0 91% 71%)"
-        : "hsl(0 84% 60%)";
+    cacheLookupResult.status === "Hit" ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)";
 
   return (
-    <div className={isDark ? "dark" : ""}>
+    <div>
       <main className="min-h-screen bg-[hsl(var(--bg-base))] px-4 py-4 text-[hsl(var(--text-primary))] sm:px-6 sm:py-6 lg:px-8">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1200px] flex-col gap-6">
           <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl">
+            <div className="max-w-2xl">
               <p className="text-[0.78rem] font-medium uppercase tracking-[0.22em] text-[hsl(var(--text-muted))]">
                 TypeAhead
               </p>
-              <h1 className="mt-3 max-w-3xl text-balance font-display text-[1.85rem] font-medium leading-[1.02] text-[hsl(var(--text-primary))] sm:text-[2.35rem] lg:text-[3.2rem]">
-                Monotone search console for live suggestions, trending queries,
-                cache routing, and batch-write telemetry.
+              <h1 className="mt-3 max-w-2xl text-balance font-display text-[1.5rem] font-medium leading-[1.04] text-[hsl(var(--text-primary))] sm:text-[1.95rem] lg:text-[2.5rem]">
+                Search suggestions with live results and simple runtime insight.
               </h1>
-              <p className="mt-4 max-w-[62ch] text-pretty text-[0.98rem] leading-7 text-[hsl(var(--text-muted))]">
-                The page stays quiet: white canvas, gray panels, black command
-                surfaces, and semantic color only where state matters.
+              <p className="mt-3 max-w-[52ch] text-pretty text-[0.92rem] leading-6 text-[hsl(var(--text-muted))]">
+                Search, submit, and inspect the system without extra noise.
               </p>
             </div>
 
@@ -613,39 +559,24 @@ export default function App() {
                 />
                 {backendOnline ? "Backend connected" : "Backend unavailable"}
               </div>
-
-              <button
-                type="button"
-                onClick={() => setIsDark((value) => !value)}
-                className="inline-flex h-11 items-center justify-center rounded-full px-4 text-[0.9rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
-                style={{
-                  backgroundColor: isDark ? "#FAFBFE" : "#171717",
-                  color: isDark ? "#120E14" : "#FAFBFE",
-                  boxShadow: isDark ? commandShadowDark : commandShadowLight,
-                }}
-              >
-                {isDark ? "Light mode" : "Dark mode"}
-              </button>
             </div>
           </header>
 
           <section
             className="rounded-[40px] p-5 text-[hsl(var(--text-inverted))] sm:p-6 lg:p-8"
             style={{
-              background: isDark
-                ? "radial-gradient(1200px circle at 50% 0%, rgba(255,255,255,0.045), rgba(0,0,0,0) 45%), #0F0F0F"
-                : "radial-gradient(1100px circle at 50% 0%, rgba(255,255,255,0.10), rgba(0,0,0,0) 28%), #0E1014",
+              background:
+                "radial-gradient(1100px circle at 50% 0%, rgba(255,255,255,0.10), rgba(0,0,0,0) 28%), #0E1014",
             }}
           >
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.9fr)]">
+            <div className="max-w-4xl space-y-5">
               <div className="space-y-5">
                 <div>
                   <p className="text-[0.76rem] font-medium uppercase tracking-[0.2em] text-[hsl(var(--text-muted-inverted))]">
                     Command surface
                   </p>
-                  <h2 className="mt-3 max-w-3xl text-balance font-display text-[1.55rem] font-medium leading-[1.04] text-[hsl(var(--text-inverted))] sm:text-[2rem] lg:text-[2.75rem]">
-                    Search with fast feedback, then watch the backend earn the
-                    result.
+                  <h2 className="mt-3 max-w-2xl text-balance font-display text-[1.35rem] font-medium leading-[1.06] text-[hsl(var(--text-inverted))] sm:text-[1.75rem] lg:text-[2.2rem]">
+                    Search with fast feedback.
                   </h2>
                 </div>
 
@@ -686,11 +617,9 @@ export default function App() {
                       disabled={isSubmitting}
                       className="inline-flex h-14 items-center justify-center rounded-full px-7 text-[0.94rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:h-16"
                       style={{
-                        backgroundColor: isDark ? "#FAFBFE" : "#171717",
-                        color: isDark ? "#120E14" : "#FAFBFE",
-                        boxShadow: isDark
-                          ? commandShadowDark
-                          : commandShadowLight,
+                        backgroundColor: "#FAFBFE",
+                        color: "#120E14",
+                        boxShadow: commandShadowLight,
                       }}
                     >
                       {isSubmitting ? "Submitting..." : "Search"}
@@ -734,7 +663,6 @@ export default function App() {
                           key={`${suggestion.query}-${index}`}
                           suggestion={suggestion}
                           selected={index === activeIndex}
-                          isDark={isDark}
                           onMouseEnter={() => setActiveIndex(index)}
                           onClick={() => handleSuggestionPick(suggestion)}
                         />
@@ -743,10 +671,7 @@ export default function App() {
                   ) : (
                     <div className="rounded-[20px] bg-[rgba(255,255,255,0.04)] px-4 py-10 text-center">
                       <div className="font-display text-[1rem] font-medium text-[hsl(var(--text-inverted))]">
-                        Start typing to fetch live suggestions.
-                      </div>
-                      <div className="mt-2 text-[0.9rem] text-[hsl(var(--text-muted-inverted))]">
-                        The input waits 300ms before each backend request.
+                        Start typing.
                       </div>
                     </div>
                   )}
@@ -762,47 +687,11 @@ export default function App() {
                   </div>
                 </div>
               </div>
-
-              <aside className="grid gap-4 self-start">
-                <HeroInfoCard title="Request path">
-                  <span>
-                    Browser {"->"} Next proxy {"->"} Spring Boot {"->"} cache
-                    ring {"->"} prefix index {"->"} batch writer.
-                  </span>
-                </HeroInfoCard>
-
-                <HeroInfoCard title="Dataset mode">
-                  CSV is supported, but this repo currently falls back to the
-                  synthetic 100k query generator when the dataset file is not
-                  present.
-                </HeroInfoCard>
-
-                <HeroInfoCard title="API surface">
-                  <div className="space-y-2">
-                    {endpointItems.map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-start justify-between gap-4"
-                      >
-                        <span className="text-[0.82rem] text-[hsl(var(--text-muted-inverted))]">
-                          {item.label}
-                        </span>
-                        <code className="text-right text-[0.82rem] text-[hsl(var(--text-inverted))]">
-                          {item.value}
-                        </code>
-                      </div>
-                    ))}
-                  </div>
-                </HeroInfoCard>
-              </aside>
             </div>
           </section>
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
-            <Panel
-              title="Runtime overview"
-              subtitle="Backend metrics stay first-class here. These cards read the same live counters the Spring service exposes."
-            >
+            <Panel title="Runtime">
               <div className="grid gap-3 sm:grid-cols-2">
                 {metricBlocks.map((metric) => (
                   <MetricCard key={metric.label} {...metric} />
@@ -812,7 +701,7 @@ export default function App() {
               <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.9fr)]">
                 <div>
                   <div className="mb-3 text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
-                    Logical node hit rates
+                    Node hit rates
                   </div>
                   <div className="space-y-3">
                     {nodeRates.length > 0 ? (
@@ -821,8 +710,7 @@ export default function App() {
                       ))
                     ) : (
                       <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 text-[0.92rem] text-[hsl(var(--text-muted))]">
-                        No node samples yet. Issue some suggestion requests to
-                        warm the cache.
+                        No node samples yet.
                       </div>
                     )}
                   </div>
@@ -830,7 +718,7 @@ export default function App() {
 
                 <div className="space-y-3">
                   <div className="text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
-                    Useful links
+                    API docs
                   </div>
                   <a
                     href="http://localhost:8080/swagger-ui.html"
@@ -840,9 +728,6 @@ export default function App() {
                   >
                     <div className="font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
                       Swagger UI
-                    </div>
-                    <div className="mt-1 text-[0.88rem] text-[hsl(var(--text-muted))]">
-                      Inspect the backend contract directly.
                     </div>
                   </a>
                   <a
@@ -854,28 +739,13 @@ export default function App() {
                     <div className="font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
                       OpenAPI JSON
                     </div>
-                    <div className="mt-1 text-[0.88rem] text-[hsl(var(--text-muted))]">
-                      Raw schema for integrations and review.
-                    </div>
                   </a>
-                  <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4">
-                    <div className="font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
-                      Public frontend route
-                    </div>
-                    <div className="mt-1 text-[0.88rem] text-[hsl(var(--text-muted))]">
-                      Docker traffic is meant to enter through Caddy at
-                      `https://localhost`.
-                    </div>
-                  </div>
                 </div>
               </div>
             </Panel>
 
             <div className="grid gap-6">
-              <Panel
-                title="Trending searches"
-                subtitle="These values come from the live recency-aware ranking route, not a static demo list."
-              >
+              <Panel title="Trending">
                 {dashboardError && trending.length === 0 ? (
                   <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 text-[0.92rem] text-[hsl(var(--text-muted))]">
                     {dashboardError}
@@ -901,9 +771,6 @@ export default function App() {
                             <div className="truncate font-display text-[0.96rem] font-medium text-[hsl(var(--text-primary))]">
                               {item.query}
                             </div>
-                            <div className="mt-1 text-[0.82rem] text-[hsl(var(--text-muted))]">
-                              Submit to re-run this search
-                            </div>
                           </div>
                         </div>
                         <div className="rounded-full bg-[hsl(var(--bg-subtle))] px-3 py-1 text-[0.8rem] text-[hsl(var(--text-secondary))]">
@@ -915,10 +782,7 @@ export default function App() {
                 )}
               </Panel>
 
-              <Panel
-                title="Cache inspector"
-                subtitle="This calls the live cache-debug route and shows which logical node owns the current prefix."
-              >
+              <Panel title="Cache">
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <input
                     value={cachePrefix}
@@ -932,11 +796,9 @@ export default function App() {
                     disabled={isResolvingCache}
                     className="inline-flex h-12 items-center justify-center rounded-full px-5 text-[0.92rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                     style={{
-                      backgroundColor: isDark ? "#FAFBFE" : "#171717",
-                      color: isDark ? "#120E14" : "#FAFBFE",
-                      boxShadow: isDark
-                        ? commandShadowDark
-                        : commandShadowLight,
+                      backgroundColor: "#171717",
+                      color: "#FAFBFE",
+                      boxShadow: commandShadowLight,
                     }}
                   >
                     {isResolvingCache ? "Resolving..." : "Resolve node"}
