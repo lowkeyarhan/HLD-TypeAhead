@@ -1,105 +1,201 @@
 # TypeAhead Project Report
 
-## 1. Architecture
+> Verified against the repository source and a live local runtime on `2026-06-22`.
 
-### 1.1 Diagram
+| Field               | Value                                                                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend            | `Next.js 16.2.9`, `React 19.2.4`, `Tailwind CSS v4`                                                                                                             |
+| Backend             | `Spring Boot 4.1.0`, `Java 26`                                                                                                                                  |
+| Primary persistence | `PostgreSQL`                                                                                                                                                    |
+| HTTPS edge          | `Caddy 2.10`                                                                                                                                                    |
+| Current status      | Frontend lint passed, frontend production build passed, live backend smoke test passed, backend Maven test suite currently blocked by local test DB credentials |
+
+---
+
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+2. [Architecture](#2-architecture)
+3. [Implementation Snapshot](#3-implementation-snapshot)
+4. [Dataset and Bootstrapping](#4-dataset-and-bootstrapping)
+5. [API Surface](#5-api-surface)
+6. [Caching, Ranking, and Write Path](#6-caching-ranking-and-write-path)
+7. [Verification Results](#7-verification-results)
+8. [Design Decisions and Trade-offs](#8-design-decisions-and-trade-offs)
+9. [Known Gaps and Risks](#9-known-gaps-and-risks)
+
+---
+
+## 1. Executive Summary
+
+TypeAhead is a search suggestion platform with a split frontend and backend:
+
+- The browser reaches the UI through `Caddy` over `https://localhost`.
+- The browser talks only to `Next.js` proxy routes under `client/app/api/*`.
+- Those routes forward requests to the `Spring Boot` backend.
+- Suggestions are served through a cache-first flow backed by a custom in-memory consistent-hash cache ring and an in-memory prefix index.
+- Search submissions are buffered in memory and flushed to PostgreSQL in batches.
+
+The current repository is operational for local runtime use. The live backend responded successfully during this session, and the frontend production build completed successfully. The main outstanding issue is the backend test profile, which currently depends on a PostgreSQL test database credential pair that is not valid in this environment.
+
+---
+
+## 2. Architecture
+
+### 2.1 Runtime Diagram
 
 ```mermaid
 flowchart LR
+    Browser["Browser"]
     Caddy["Caddy<br/>HTTPS reverse proxy"]
-    Browser["Browser UI<br/>Next.js page"]
-    Proxy["Next.js route handlers<br/>/api/* proxy layer"]
+    Next["Next.js frontend"]
+    Proxy["Next.js route handlers<br/>/api/*"]
     Spring["Spring Boot backend"]
-    Cache["Logical cache nodes<br/>+ consistent hash ring"]
+    Cache["Logical cache ring<br/>3 in-memory nodes"]
     Index["In-memory prefix index"]
     Buffer["Search event buffer"]
     Scheduler["Batch flush scheduler"]
-    Postgres[("PostgreSQL query_count")]
+    Postgres[("PostgreSQL")]
 
     Browser -->|HTTPS| Caddy
-    Caddy --> Browser
-
-    Browser -->|GET /api/suggest| Proxy
-    Browser -->|POST /api/search| Proxy
-    Browser -->|GET /api/trending| Proxy
-    Browser -->|GET /api/metrics| Proxy
-    Browser -->|GET /api/cache-debug| Proxy
-
-    Proxy -->|forward requests| Spring
+    Caddy --> Next
+    Next --> Proxy
+    Proxy --> Spring
 
     Spring --> Cache
     Cache -->|miss| Index
+    Index --> Postgres
+
     Spring --> Buffer
     Buffer --> Scheduler
     Scheduler --> Postgres
     Scheduler --> Index
     Scheduler --> Cache
-    Index --> Postgres
 ```
 
-### 1.2 Clear architecture explanation
+### 2.2 Read Path
 
-The delivered runtime shape is:
+1. The browser opens the frontend through `https://localhost`.
+2. Caddy reverse proxies to the internal Next.js container on port `3000`.
+3. The frontend calls local proxy routes such as `/api/suggest`.
+4. The proxy forwards requests to the Spring Boot backend.
+5. `SuggestionServiceImpl` checks the logical cache ring first.
+6. On a miss, the backend searches the in-memory prefix index and ranks the full candidate set before limiting the response.
 
-1. The browser reaches the frontend through Caddy over `https://localhost`.
-2. Caddy reverse proxies the request to the Next.js app.
-3. The browser talks only to the Next.js app.
-4. Next.js route handlers under `client/app/api/*` proxy those calls to the Spring Boot backend.
-5. The Spring backend serves read traffic through a cache-first suggestion flow:
-   - `SuggestionController` -> `SuggestionService`
-   - `CacheNodeManager` routes keys with consistent hashing
-   - cache miss falls through to `PrefixIndexService`
-6. Search submissions go through `SearchService`, which buffers events in memory and relies on scheduled batch flushes to reduce database writes.
-7. Metrics and cache-debug endpoints expose internal behavior for validation and reporting.
+### 2.3 Write Path
 
-Why the extra Next proxy layer exists:
+1. The browser submits a query through `POST /api/search`.
+2. The backend normalizes the query and increments an in-memory buffer.
+3. A flush happens either:
+   - on the configured scheduler interval, or
+   - early when the buffer reaches the configured size threshold.
+4. The flush batches updates into PostgreSQL and applies the delta to the in-memory prefix index.
 
-- It removes browser CORS dependence.
-- It lets the frontend use stable relative URLs like `/api/suggest`.
-- It works both in local dev and in Docker, as long as `TYPEAHEAD_API_BASE_URL` points at the backend.
+### 2.4 Why the Next.js Proxy Layer Exists
 
-## 2. Dataset Source And Loading Instructions
+- It removes browser-side CORS dependence.
+- It lets the frontend use stable relative paths like `/api/suggest`.
+- It works both in local development and in Docker by changing only `TYPEAHEAD_API_BASE_URL`.
 
-### 2.1 Actual dataset source in this repo
+---
 
-The current repo does **not** include a checked-in CSV dataset at:
+## 3. Implementation Snapshot
+
+### 3.1 Service Layout
+
+| Layer            | Implementation                                            | Notes                                                                   |
+| ---------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Frontend UI      | `client/app/page.tsx` and `client/components/dashboard/*` | Search UI, trending panel, runtime panel, cache panel                   |
+| Frontend proxy   | `client/app/api/*`                                        | Suggest, search, trending, metrics, cache debug                         |
+| Backend API      | Spring MVC controllers                                    | `/ping`, `/suggest`, `/search`, `/trending`, `/metrics`, `/cache/debug` |
+| Query store      | PostgreSQL `query_count` table                            | Migrated by Flyway                                                      |
+| Suggestion index | `PrefixIndexServiceImpl`                                  | In-memory `TreeMap` with copy-on-write rebuild/update behavior          |
+| Cache            | `CacheNodeManager` + `ConsistentHashRing`                 | Hand-rolled logical cache ring, not Redis-backed query caching          |
+| Search batching  | `SearchEventBuffer` + `BatchFlushScheduler`               | In-memory aggregation plus JDBC batch updates                           |
+
+### 3.2 Active Configuration
+
+Values below come from `server/src/main/resources/application.yml`.
+
+| Setting                         | Value                  |
+| ------------------------------- | ---------------------- |
+| Cache node count                | `3`                    |
+| Virtual nodes per physical node | `150`                  |
+| Cache TTL                       | `60` seconds           |
+| Batch flush interval            | `5000` ms              |
+| Batch size threshold            | `500` buffered queries |
+| Ranking strategy                | `recency-aware`        |
+| Ranking half-life               | `30` minutes           |
+
+### 3.3 Infrastructure Footprint
+
+Values below come from `compose.yaml` and `infra/caddy/Caddyfile`.
+
+| Service    | Port / URL      | Purpose                                                                              |
+| ---------- | --------------- | ------------------------------------------------------------------------------------ |
+| `postgres` | `5432`          | Primary persistence                                                                  |
+| `redis`    | `6379`          | Provisioned in the stack, but not used as the active suggestion cache implementation |
+| `server`   | `8080`          | Spring Boot backend                                                                  |
+| `client`   | internal `3000` | Next.js app                                                                          |
+| `caddy`    | `80`, `443`     | HTTP redirect and HTTPS reverse proxy                                                |
+
+### 3.4 Important Clarification About Redis
+
+Redis is present in:
+
+- `compose.yaml`
+- `server/pom.xml`
+
+However, the query suggestion cache implemented in this codebase is the custom logical in-memory cache under:
+
+- `server/src/main/java/com/lowkeyarhan/TypeAhead/modules/cache/*`
+
+So the current report treats Redis as provisioned infrastructure, not as the active cache used by the suggestion path.
+
+---
+
+## 4. Dataset and Bootstrapping
+
+### 4.1 Current Dataset Source
+
+The backend first attempts to read:
 
 - `server/src/main/resources/dataset/queries.csv`
 
-Because that file is absent, the backend currently falls back to:
+That CSV is currently not present in the repository, so startup ingestion falls back to:
 
-- `server/src/main/java/com/lowkeyarhan/TypeAhead/modules/ingestion/service/impl/SyntheticDatasetSource.java`
+- `SyntheticDatasetSource`
 
-That generator creates:
+### 4.2 Fallback Dataset Characteristics
 
-- `100000` unique query strings
-- lowercased synthetic phrases
-- a Zipf-like count distribution, so a small set of queries are very popular and the rest form a long tail
+The fallback generator creates:
 
-### 2.2 Loading behavior
+- `100000` synthetic query strings
+- lowercase, normalized phrases
+- an uneven popularity distribution with a high-volume head and long tail
 
-Startup ingestion is handled by:
+### 4.3 Boot Process
 
-- `server/src/main/java/com/lowkeyarhan/TypeAhead/modules/ingestion/service/DatasetLoader.java`
-
-Behavior:
+Startup loading is handled by `DatasetLoader`:
 
 1. Count rows in `query_count`.
-2. If rows already exist, skip ingestion.
-3. Try CSV source first.
-4. If CSV returns empty, generate the synthetic dataset.
-5. Aggregate duplicates.
-6. Batch insert into PostgreSQL.
-7. Publish `DatasetLoadedEvent`, which triggers prefix-index rebuild.
+2. Skip ingestion if the table is already populated.
+3. Attempt CSV ingestion first.
+4. Fall back to the synthetic generator if the CSV is missing or empty.
+5. Aggregate duplicate query rows.
+6. Insert rows into PostgreSQL using JDBC batching.
+7. Publish `DatasetLoadedEvent`, which triggers a full prefix-index rebuild.
 
-### 2.3 How to reload the dataset
+### 4.4 Reload Instructions
 
-1. Ensure PostgreSQL is running.
-2. Clear existing rows or recreate the database volume.
-3. Start the backend.
-4. On first startup the loader repopulates `query_count`.
+To force a fresh load:
 
-If you want a real CSV-backed run, place a file at:
+1. Stop the app.
+2. Clear the existing `query_count` rows or recreate the PostgreSQL volume.
+3. Restart the backend.
+4. On boot, the loader will repopulate the table and rebuild the in-memory index.
+
+If you want a CSV-backed run instead of synthetic data, create:
 
 - `server/src/main/resources/dataset/queries.csv`
 
@@ -108,38 +204,66 @@ Expected columns:
 - `query`
 - `count`
 
-## 3. API Documentation
+---
 
-Swagger/OpenAPI is exposed by the backend at:
+## 5. API Surface
+
+### 5.1 Public Backend Endpoints
+
+| Method | Route                                    | Purpose                             |
+| ------ | ---------------------------------------- | ----------------------------------- |
+| `GET`  | `/ping`                                  | Health check                        |
+| `GET`  | `/suggest?q=<prefix>&limit=<n>`          | Prefix-based suggestions            |
+| `POST` | `/search`                                | Submit a search event               |
+| `GET`  | `/trending?limit=<n>`                    | Global trending queries             |
+| `GET`  | `/metrics`                               | Runtime telemetry                   |
+| `GET`  | `/cache/debug?prefix=<prefix>&limit=<n>` | Cache allocation and hit/miss state |
+
+### 5.2 Frontend Proxy Endpoints
+
+The browser uses these local Next.js routes:
+
+- `/api/suggest`
+- `/api/search`
+- `/api/trending`
+- `/api/metrics`
+- `/api/cache-debug`
+
+### 5.3 OpenAPI / Swagger
+
+Backend API docs are exposed at:
 
 - `http://localhost:8080/swagger-ui.html`
 - `http://localhost:8080/v3/api-docs`
 
-The frontend uses these backend endpoints through its local proxy routes.
+### 5.4 Request and Response Examples
 
-### 3.1 Suggest
+#### Suggest
 
-- Backend: `GET /suggest?q=<prefix>&limit=<n>`
-- Frontend proxy: `GET /api/suggest?q=<prefix>&limit=<n>`
+Request:
 
-Example:
+```http
+GET /suggest?q=java&limit=5
+```
+
+Response observed in this session:
 
 ```json
 {
   "prefix": "java",
   "suggestions": [
     { "query": "java validation controller", "count": 105112 },
-    { "query": "java thread", "count": 77550 }
+    { "query": "java thread", "count": 77550 },
+    { "query": "java typescript", "count": 20442 },
+    { "query": "java spring", "count": 16433 },
+    { "query": "java handler", "count": 13538 }
   ]
 }
 ```
 
-### 3.2 Search submit
+#### Search
 
-- Backend: `POST /search`
-- Frontend proxy: `POST /api/search`
-
-Request body:
+Request:
 
 ```json
 {
@@ -155,35 +279,32 @@ Response:
 }
 ```
 
-### 3.3 Trending
+#### Trending
 
-- Backend: `GET /trending?limit=<n>`
-- Frontend proxy: `GET /api/trending?limit=<n>`
-
-Example:
+Response observed in this session:
 
 ```json
 {
   "trending": [
     { "query": "css iphone javascript", "count": 500000 },
-    { "query": "vue", "count": 297302 }
+    { "query": "vue", "count": 297302 },
+    { "query": "branch concurrency microservice", "count": 219346 },
+    { "query": "branch angular push", "count": 176777 },
+    { "query": "push example dockerfile", "count": 149535 }
   ]
 }
 ```
 
-### 3.4 Metrics
+#### Metrics
 
-- Backend: `GET /metrics`
-- Frontend proxy: `GET /api/metrics`
-
-Example:
+Fresh metrics snapshot after one submitted search and one flush interval:
 
 ```json
 {
   "suggestP95LatencyMs": 0.0,
-  "overallCacheHitRate": 0.5,
+  "overallCacheHitRate": 0.0,
   "perNodeCacheHitRates": {
-    "node-0": 0.5,
+    "node-0": 0.0,
     "node-1": 0.0,
     "node-2": 0.0
   },
@@ -193,12 +314,9 @@ Example:
 }
 ```
 
-### 3.5 Cache debug
+#### Cache Debug
 
-- Backend: `GET /cache/debug?prefix=<prefix>&limit=<n>`
-- Frontend proxy: `GET /api/cache-debug?prefix=<prefix>&limit=<n>`
-
-Example:
+Response format:
 
 ```json
 {
@@ -207,146 +325,234 @@ Example:
 }
 ```
 
-## 4. Design Choices And Trade-offs
+---
 
-### 4.1 Next.js proxy instead of direct browser-to-backend calls
+## 6. Caching, Ranking, and Write Path
 
-Choice:
+### 6.1 Suggestion Caching
 
-- Added `client/app/api/*` route handlers that forward to Spring Boot.
+Suggestion cache keys use this shape:
 
-Why:
+```text
+suggest:<normalized-prefix>:<limit>
+```
 
-- Avoids CORS configuration as a frontend dependency.
-- Keeps the UI code simple and environment-agnostic.
-- Fixes Docker networking cleanly by using `TYPEAHEAD_API_BASE_URL=http://server:8080`.
+Behavior:
 
-Trade-off:
+1. `SuggestionServiceImpl` checks the routed cache node first.
+2. A hit returns cached `SuggestResultDTO` values immediately.
+3. A miss triggers a full prefix-index search for that prefix.
+4. The ranking strategy scores the full candidate set and only then applies the requested limit.
+5. The final result list is cached with the configured TTL.
 
-- One extra hop through the Next server.
-- Slightly more code than direct `fetch("http://localhost:8080/...")`.
+### 6.2 Ranking Strategy
 
-### 4.2 Keep the frontend minimal, but split responsibilities cleanly
+The active strategy is `recency-aware`.
 
-Choice:
+The score formula is effectively:
 
-- Kept the same minimal screen, but split it into focused React components and one dashboard hook.
+```text
+score = totalCount + recentCount * 0.5^(minutesSinceLastSearch / halfLifeMinutes)
+```
 
-Why:
+Current half-life:
 
-- The page is easier to read and maintain.
-- UI rendering and data orchestration are separated.
-- Static UI copy now lives in JSON under `client/data`.
+- `30` minutes
 
-Trade-off:
+What this means:
 
-- There are more files in the frontend module.
-- The structure is slightly heavier than a single page file, but much easier to extend safely.
+- historically popular queries remain strong because `totalCount` is persistent
+- recently searched queries get a temporary boost
+- the boost decays as time passes
 
-### 4.3 Use backend metrics as the source of truth
+### 6.3 Write Buffering
 
-Choice:
+`POST /search` does not write each event directly to PostgreSQL.
 
-- The diagnostics panel reads `/metrics` instead of recomputing local approximations.
+Instead:
 
-Why:
+1. the query is normalized
+2. an in-memory counter is incremented
+3. the scheduler drains the buffer every `5000` ms
+4. the scheduler issues a JDBC batch upsert into `query_count`
+5. the scheduler applies the same delta to the in-memory prefix index
 
-- Prevents frontend/backend drift.
-- The report and UI are based on the same runtime counters.
+This keeps the read path fast and reduces write amplification on the database.
 
-Trade-off:
+### 6.4 Fresh Runtime Behavior Confirmed in This Session
 
-- Metrics visibility depends on backend availability.
-- When the backend is offline, the page can only show error state, not fake numbers.
+- `GET /suggest?q=java&limit=5` returned live data from the running backend.
+- `GET /cache/debug?prefix=java&limit=5` returned `hit=true` after that request, confirming cache warming.
+- `POST /search` for `java spring` succeeded.
+- After one scheduler interval, `dbWriteCount` increased from `0` to `1`.
+- After the flush, `GET /cache/debug?prefix=java&limit=10` returned `hit=false`, then `GET /suggest?q=java&limit=10` returned `java spring` with count `16434`, and a repeated cache-debug call returned `hit=true`.
 
-### 4.4 Synthetic fallback dataset
+That sequence confirms:
 
-Choice:
+- cache fill works
+- buffered writes flush successfully
+- the in-memory index is updated after flush
+- live counts are reflected in new suggestion responses
 
-- Accept the current backend behavior: use CSV if present, otherwise generate 100k synthetic queries.
+---
 
-Why:
+## 7. Verification Results
 
-- The repo does not contain a real dataset file.
-- This keeps the app runnable and demoable.
+### 7.1 Checks Completed Successfully
 
-Trade-off:
+| Check                               | Result                        |
+| ----------------------------------- | ----------------------------- |
+| `client: npm run lint`              | Passed                        |
+| `client: npm run build`             | Passed                        |
+| `GET /ping`                         | Passed with `{"status":"ok"}` |
+| `GET /suggest?q=java&limit=5`       | Passed                        |
+| `GET /trending?limit=5`             | Passed                        |
+| `POST /search`                      | Passed                        |
+| `GET /metrics` after flush interval | Passed                        |
 
-- The dataset is realistic enough for scale behavior but not domain-authentic.
-- Trending/suggestion content is synthetic, so product realism is limited.
+### 7.2 Backend Test Suite Status
 
-## 5. Performance Report
+`server: ./mvnw test` does not currently pass in this environment.
 
-### 5.1 Verification performed in this session
+The elevated run removed the sandbox/network ambiguity and exposed the actual issue:
 
-Frontend:
+- the `test` profile connects to `localhost:5432/testdb`
+- it authenticates as `testuser`
+- PostgreSQL currently rejects that credential with `FATAL: password authentication failed for user "testuser"`
 
-- `client`: `npm run lint` passed
-- `client`: `npm run build -- --webpack` passed
+So the present failure is environmental configuration, not a shell sandbox artifact.
 
-Runtime backend evidence gathered from the live local backend on `http://localhost:8080`:
+### 7.3 Notes About the Metrics Snapshot
 
-1. `GET /ping` returned `{"status":"ok"}`
-2. `GET /suggest?q=java&limit=5` returned ranked suggestions
-3. First `GET /cache/debug?prefix=java&limit=5` returned `hit=false`
-4. Repeating the same suggest warmed the cache
-5. Next `GET /cache/debug?prefix=java&limit=5` returned `hit=true`
-6. `POST /search` returned `{"message":"Searched"}`
-7. After waiting one flush interval, `GET /metrics` showed `dbWriteCount=1` and `requestsToFlushesRatio=1.0`
+The live metrics currently show:
 
-### 5.2 Observed metrics snapshot
+- `suggestP95LatencyMs = 0.0`
+- `overallCacheHitRate = 0.0`
+- `dbReadCount = 2`
+- `dbWriteCount = 1`
+- `requestsToFlushesRatio = 1.0`
 
-This is a **smoke-test snapshot**, not a load-test benchmark:
+This is useful as a smoke-test snapshot only. It is not a meaningful benchmark because the sample size is tiny and no sustained load was applied.
 
-- `suggestP95LatencyMs`: `0.0`
-- `overallCacheHitRate`: `0.5`
-- `dbReadCount`: `2`
-- `dbWriteCount`: `1`
-- `requestsToFlushesRatio`: `1.0`
+---
 
-Interpretation:
+## 8. Design Decisions and Trade-offs
 
-- Cache behavior was confirmed functionally: miss first, then hit.
-- Batch-write behavior was confirmed functionally: one submitted search produced one flushed write after the scheduler window.
-- The p95 value is not meaningful yet because the sample size is tiny.
+### 8.1 Next.js Proxy Instead of Browser-to-Backend Calls
 
-### 5.3 Limitations of this performance section
+**Choice**
 
-The current numbers are only suitable as proof of wiring and runtime behavior. They are not sufficient as a serious throughput benchmark because:
+Use Next.js route handlers as a stable proxy layer.
 
-- no sustained load was applied
-- sample size is very small
-- the snapshot comes from a developer machine, not a controlled benchmark harness
+**Benefit**
 
-For evaluation-quality benchmarking, drive repeated `/suggest` and `/search` traffic and capture:
+- simpler browser code
+- no direct browser CORS dependence
+- one deployment pattern for both local and Docker use
 
-- p50/p95/p99 suggest latency
-- cache hit rate after warm-up
-- batch flush frequency under load
-- DB writes before vs after batching
+**Trade-off**
 
-## 6. Frontend Wiring Summary
+- one extra server hop
+- more code than direct browser fetches to the backend
 
-Implemented changes:
+### 8.2 Custom Cache Ring Instead of a Library-Managed Cache
 
-- Added Next proxy routes:
-  - `client/app/api/suggest/route.ts`
-  - `client/app/api/search/route.ts`
-  - `client/app/api/trending/route.ts`
-  - `client/app/api/metrics/route.ts`
-  - `client/app/api/cache-debug/route.ts`
-- Added shared proxy helper:
-  - `client/lib/backend.ts`
-- Replaced mocked frontend data in:
-  - `client/app/page.tsx`
-- Fixed Docker client wiring in:
-  - `compose.yaml`
+**Choice**
 
-## 7. Final Commit Hash For Evaluation
+Implement consistent hashing and node-level hit/miss tracking directly in the backend.
 
-Use the repository `HEAD` hash from the final submitted commit.
+**Benefit**
 
-Important note:
+- demonstrates the assignment objective explicitly
+- makes routing, invalidation, and diagnostics visible
 
-- An exact self-embedded Git commit hash is not stable inside this same report file, because changing the file changes the commit hash.
-- For grading, use the exact `git rev-parse HEAD` value from the final repository state you submit.
+**Trade-off**
+
+- fewer production-grade features than a mature cache system
+- more responsibility for invalidation correctness and operational hardening
+
+### 8.3 In-Memory Prefix Index
+
+**Choice**
+
+Keep a copy-on-write in-memory `TreeMap` for prefix lookup.
+
+**Benefit**
+
+- fast prefix range scans
+- no database round-trip on the suggestion hot path after boot
+
+**Trade-off**
+
+- memory usage grows with dataset size
+- index rebuild and lifecycle management remain application concerns
+
+### 8.4 Buffered Database Writes
+
+**Choice**
+
+Buffer search traffic and flush in batches.
+
+**Benefit**
+
+- reduces direct write pressure on PostgreSQL
+- keeps the write path simple and cheap for demo-scale workloads
+
+**Trade-off**
+
+- a crash can lose unflushed in-memory events
+- read-after-write consistency depends on the flush cycle
+
+### 8.5 Synthetic Dataset Fallback
+
+**Choice**
+
+Keep the app runnable even without a checked-in CSV dataset.
+
+**Benefit**
+
+- zero manual data import required
+- the app remains demoable immediately
+
+**Trade-off**
+
+- query content is synthetic rather than domain-authentic
+- relevance realism is limited even though scale behavior is preserved
+
+---
+
+## 9. Known Gaps and Risks
+
+### 9.1 Backend Tests Depend on External Test DB Credentials
+
+The test profile expects:
+
+- database: `testdb`
+- user: `testuser`
+- password: `testpassword`
+
+Those credentials are not currently valid in this environment, so `./mvnw test` fails before the suite can fully execute.
+
+### 9.2 Cache Invalidation Is Limit-Specific
+
+During batch flush, invalidation is currently issued only for cache keys shaped like:
+
+```text
+suggest:<prefix>:10
+```
+
+That means suggestion caches for other limits such as `5` or `20` are not proactively invalidated by the flush path. Those entries still expire by TTL, but they are not immediately refreshed after a write.
+
+### 9.3 Redis Is Present but Not the Active Query Cache
+
+The repository includes Redis infrastructure and dependencies, but the actual suggestion cache behavior is currently implemented in-process with logical nodes. That distinction should remain explicit in demos and evaluation discussions.
+
+### 9.4 Metrics Are Operational, Not Benchmark-Grade
+
+The existing metrics endpoint is useful for:
+
+- smoke testing
+- cache verification
+- write-flush verification
+
+It is not yet a substitute for controlled load testing with meaningful p50/p95/p99 latency analysis.
