@@ -14,10 +14,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-// Entity representing search query statistics.
-// 
-// Note: queryText is expected to be normalized (trimmed and lowercase) BEFORE
-// it reaches this layer. This normalization is handled in a shared utility.
+// Entity representing search query statistics. queryText is normalized before reaching this layer.
 @Entity
 @Table(name = "query_count")
 @Getter

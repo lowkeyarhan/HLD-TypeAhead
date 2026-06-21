@@ -15,8 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-// Orchestrates periodic and size-triggered asynchronous flushes of search events to the database,
-// updating in-memory indexes and invalidating caches.
+// Orchestrates periodic and size-triggered flushes of buffered search events to Postgres.
 @Slf4j
 @Component
 public class BatchFlushScheduler {
@@ -62,15 +61,7 @@ public class BatchFlushScheduler {
         }
 
         try {
-            // RESILIENCE TRADEOFF COMMENT:
-            // Buffered writes in SearchEventBuffer are held purely in memory. In the event of an abrupt JVM crash or
-            // power failure, any events sitting in this buffer that have not yet been flushed will be lost.
-            // This represents a bounded data loss of at most one flush interval (default 5 seconds).
-            // For a search typeahead suggestion system, this is a highly acceptable trade-off because query statistics
-            // are not critical transactional data. Small, occasional loss of count updates does not compromise system correctness.
-            // A stronger alternative to prevent data loss would be implementing a Write-Ahead Log (WAL) or pushing events to a
-            // persistent queue (like Kafka or RabbitMQ) before processing, but that would introduce significant latency,
-            // infrastructure overhead, and complexity.
+            // RESILIENCE: events in buffer at crash time are lost (bounded to one flush interval). Acceptable for search count updates.
             Map<String, BufferedEvent> drained = searchEventBuffer.drainAndSwap();
 
             if (drained.isEmpty()) {
@@ -96,24 +87,17 @@ public class BatchFlushScheduler {
             jdbcTemplate.batchUpdate(sql, batchArgs);
             metricsService.incrementDbWrites(batchArgs.size());
 
-            // Update in-memory prefix index incrementally and invalidate cache keys for immediate read consistency
             for (Map.Entry<String, BufferedEvent> entry : drained.entrySet()) {
                 String queryText = entry.getKey();
                 BufferedEvent event = entry.getValue();
-                
                 prefixIndexService.applyDelta(queryText, event.count(), event.lastSeenAt());
-
-                // CACHE CONSISTENCY CHOICE:
-                // We invalidate all prefix query cache entries matching prefixes of this updated query.
-                // This ensures suggestions reflect changes immediately instead of waiting for cache TTL.
+                // Invalidate all prefix cache keys for this query to ensure immediate consistency
                 for (int len = 1; len <= queryText.length(); len++) {
-                    String prefix = queryText.substring(0, len);
-                    // Invalidate default limit 10 cache keys
-                    cacheNodeManager.invalidate("suggest:" + prefix + ":10");
+                    cacheNodeManager.invalidate("suggest:" + queryText.substring(0, len) + ":10");
                 }
             }
 
-            // Calculate and log stats and requests-to-flushes ratio
+
             long distinctQueries = drained.size();
             long totalIncrements = drained.values().stream().mapToLong(BufferedEvent::count).sum();
             long totalReqs = searchEventBuffer.getTotalRequests();

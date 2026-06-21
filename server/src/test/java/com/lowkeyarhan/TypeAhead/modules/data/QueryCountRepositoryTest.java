@@ -13,8 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Integration tests for QueryCountRepository.
-// Note: These tests run against PostgreSQL database as H2 has been excluded by requirement.
-// Make sure the PostgreSQL database is running on localhost:5432 before execution.
+// Integration tests requiring PostgreSQL running on localhost:5432.
 @SpringBootTest
 @Transactional
 class QueryCountRepositoryTest {

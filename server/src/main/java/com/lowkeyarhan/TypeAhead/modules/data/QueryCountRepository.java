@@ -13,22 +13,10 @@ import java.util.Optional;
 @Repository
 public interface QueryCountRepository extends JpaRepository<QueryCount, Long> {
 
-    // Finds query statistics by exact query text match.
-    //
-    // @param queryText the normalized query string
-    // @return the query count entity if present
+    // Finds query statistics by exact normalized query text.
     Optional<QueryCount> findByQueryText(String queryText);
 
-    // Performs a single-row native upsert of a query count.
-    // If the query text already exists, increments the counts and updates the last searched timestamp.
-    //
-    // Note: Phase 9 will implement a batch version of this statement to support bulk flushes.
-    //
-    // @param queryText      the normalized query text
-    // @param totalCount     the count increment to apply for total searches
-    // @param recentCount    the count increment to apply for recent searches
-    // @param lastSearchedAt the timestamp of the search
-    // @param createdAt      the timestamp of creation (ignored on conflict updates)
+    // Native upsert: inserts or increments counts for an existing query row.
     @Modifying
     @Query(value = "INSERT INTO query_count (query_text, total_count, recent_count, last_searched_at, created_at) " +
             "VALUES (:queryText, :totalCount, :recentCount, :lastSearchedAt, :createdAt) " +

@@ -13,11 +13,7 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-// Thread-safe in-memory index for fast prefix lookups.
-// Implementation trade-off: A TreeMap is used here instead of a Trie.
-// TreeMap is simpler to implement correctly, and for 100k scale, the subMap() range
-// scan is extremely fast (under 10ms). A Trie would be preferred at a much larger scale.
-// Thread-safety is achieved using copy-on-write reference swapping for lock-free reads.
+// Thread-safe in-memory prefix index using TreeMap + copy-on-write for lock-free reads.
 @Slf4j
 @Service
 public class PrefixIndexServiceImpl implements PrefixIndexService {
@@ -86,8 +82,7 @@ public class PrefixIndexServiceImpl implements PrefixIndexService {
         log.info("Prefix index rebuilt with {} queries in {} ms.", newIndex.size(), (endTime - startTime));
     }
 
-    // Observer Pattern: listens for dataset ingestion completeness to trigger
-    // rebuild
+    // Listens for DatasetLoadedEvent to trigger a full index rebuild.
     @EventListener
     public void onDatasetLoaded(DatasetLoadedEvent event) {
         rebuild();
