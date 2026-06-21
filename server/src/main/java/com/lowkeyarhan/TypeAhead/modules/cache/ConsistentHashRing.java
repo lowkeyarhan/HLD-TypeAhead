@@ -1,5 +1,6 @@
 package com.lowkeyarhan.TypeAhead.modules.cache;
 
+import com.lowkeyarhan.TypeAhead.modules.cache.service.HashFunction;
 import java.util.Map;
 import java.util.TreeMap;
 

@@ -1,5 +1,8 @@
 package com.lowkeyarhan.TypeAhead.modules.suggestion;
 
+import com.lowkeyarhan.TypeAhead.modules.suggestion.controller.SuggestionController;
+import com.lowkeyarhan.TypeAhead.modules.suggestion.service.SuggestionService;
+
 import com.lowkeyarhan.TypeAhead.modules.suggestion.dto.SuggestResultDTO;
 import com.lowkeyarhan.TypeAhead.modules.suggestion.dto.SuggestionResponseDTO;
 import org.junit.jupiter.api.BeforeEach;

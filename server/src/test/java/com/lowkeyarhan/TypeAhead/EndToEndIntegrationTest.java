@@ -1,18 +1,17 @@
 package com.lowkeyarhan.TypeAhead;
 
-import com.lowkeyarhan.TypeAhead.modules.batch.BatchFlushScheduler;
-import com.lowkeyarhan.TypeAhead.modules.cache.CacheController;
-import com.lowkeyarhan.TypeAhead.modules.cache.CacheDebugResponseDTO;
+import com.lowkeyarhan.TypeAhead.modules.batch.service.BatchFlushScheduler;
+import com.lowkeyarhan.TypeAhead.modules.cache.controller.CacheController;
+import com.lowkeyarhan.TypeAhead.modules.cache.dto.CacheDebugResponseDTO;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCount;
-import com.lowkeyarhan.TypeAhead.modules.data.QueryCountRepository;
-import com.lowkeyarhan.TypeAhead.modules.index.PrefixIndexService;
-import com.lowkeyarhan.TypeAhead.modules.suggestion.SuggestionController;
+import com.lowkeyarhan.TypeAhead.modules.data.repository.QueryCountRepository;
+import com.lowkeyarhan.TypeAhead.modules.index.service.PrefixIndexService;
+import com.lowkeyarhan.TypeAhead.modules.suggestion.controller.SuggestionController;
 import com.lowkeyarhan.TypeAhead.modules.suggestion.dto.SuggestionResponseDTO;
-import com.lowkeyarhan.TypeAhead.modules.search.SearchController;
+import com.lowkeyarhan.TypeAhead.modules.search.controller.SearchController;
 import com.lowkeyarhan.TypeAhead.modules.search.dto.SearchRequestDTO;
-import com.lowkeyarhan.TypeAhead.modules.trending.TrendingController;
+import com.lowkeyarhan.TypeAhead.modules.trending.controller.TrendingController;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -22,8 +21,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Instant;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 // End-to-end integration test verifying query ingestion, routing diagnostics, cache invalidation, and ranking.

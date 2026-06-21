@@ -1,10 +1,11 @@
 package com.lowkeyarhan.TypeAhead.modules.suggestion;
 
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCount;
-import com.lowkeyarhan.TypeAhead.modules.index.PrefixIndexService;
+import com.lowkeyarhan.TypeAhead.modules.index.service.PrefixIndexService;
+import com.lowkeyarhan.TypeAhead.modules.cache.service.CacheNodeManager;
+import com.lowkeyarhan.TypeAhead.modules.trending.service.impl.PopularityRankingStrategy;
+import com.lowkeyarhan.TypeAhead.modules.suggestion.service.impl.SuggestionServiceImpl;
 import com.lowkeyarhan.TypeAhead.modules.suggestion.dto.SuggestResultDTO;
-import com.lowkeyarhan.TypeAhead.modules.cache.CacheNodeManager;
-import com.lowkeyarhan.TypeAhead.modules.trending.PopularityRankingStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -13,7 +14,6 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 // Unit test verifying suggestion service mapping logic.
 class SuggestionServiceTest {

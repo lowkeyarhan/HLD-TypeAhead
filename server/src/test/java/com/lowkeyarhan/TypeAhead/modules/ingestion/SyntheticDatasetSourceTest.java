@@ -1,5 +1,8 @@
 package com.lowkeyarhan.TypeAhead.modules.ingestion;
 
+import com.lowkeyarhan.TypeAhead.modules.ingestion.dto.QueryCountRow;
+import com.lowkeyarhan.TypeAhead.modules.ingestion.service.impl.SyntheticDatasetSource;
+
 import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Set;

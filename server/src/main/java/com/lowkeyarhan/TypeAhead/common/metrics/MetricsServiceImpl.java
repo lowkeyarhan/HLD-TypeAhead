@@ -1,9 +1,9 @@
 package com.lowkeyarhan.TypeAhead.common.metrics;
 
-import com.lowkeyarhan.TypeAhead.modules.batch.BatchFlushScheduler;
-import com.lowkeyarhan.TypeAhead.modules.batch.SearchEventBuffer;
+import com.lowkeyarhan.TypeAhead.modules.batch.service.BatchFlushScheduler;
+import com.lowkeyarhan.TypeAhead.modules.batch.service.SearchEventBuffer;
 import com.lowkeyarhan.TypeAhead.modules.cache.CacheNode;
-import com.lowkeyarhan.TypeAhead.modules.cache.CacheNodeManager;
+import com.lowkeyarhan.TypeAhead.modules.cache.service.CacheNodeManager;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;

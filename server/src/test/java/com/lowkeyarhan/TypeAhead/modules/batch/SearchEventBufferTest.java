@@ -1,5 +1,7 @@
 package com.lowkeyarhan.TypeAhead.modules.batch;
 
+import com.lowkeyarhan.TypeAhead.modules.batch.service.SearchEventBuffer;
+
 import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;

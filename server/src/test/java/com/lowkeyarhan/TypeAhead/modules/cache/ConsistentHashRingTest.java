@@ -1,5 +1,8 @@
 package com.lowkeyarhan.TypeAhead.modules.cache;
 
+import com.lowkeyarhan.TypeAhead.modules.cache.service.HashFunction;
+import com.lowkeyarhan.TypeAhead.modules.cache.service.impl.Md5HashFunction;
+
 import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.HashMap;

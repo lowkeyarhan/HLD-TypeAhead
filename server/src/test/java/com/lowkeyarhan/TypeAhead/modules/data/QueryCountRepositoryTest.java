@@ -1,5 +1,7 @@
 package com.lowkeyarhan.TypeAhead.modules.data;
 
+import com.lowkeyarhan.TypeAhead.modules.data.repository.QueryCountRepository;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

@@ -1,11 +1,12 @@
 package com.lowkeyarhan.TypeAhead.modules.batch;
 
 import com.lowkeyarhan.TypeAhead.common.metrics.MetricsService;
-import com.lowkeyarhan.TypeAhead.modules.cache.CacheNodeManager;
-import com.lowkeyarhan.TypeAhead.modules.index.PrefixIndexService;
+import com.lowkeyarhan.TypeAhead.modules.cache.service.CacheNodeManager;
+import com.lowkeyarhan.TypeAhead.modules.index.service.PrefixIndexService;
+import com.lowkeyarhan.TypeAhead.modules.batch.service.BatchFlushScheduler;
+import com.lowkeyarhan.TypeAhead.modules.batch.service.SearchEventBuffer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.Instant;
 import java.util.HashMap;
@@ -29,7 +30,8 @@ class BatchFlushSchedulerTest {
         prefixIndexService = mock(PrefixIndexService.class);
         cacheNodeManager = mock(CacheNodeManager.class);
         metricsService = mock(MetricsService.class);
-        scheduler = new BatchFlushScheduler(searchEventBuffer, jdbcTemplate, prefixIndexService, cacheNodeManager, metricsService);
+        scheduler = new BatchFlushScheduler(searchEventBuffer, jdbcTemplate, prefixIndexService, cacheNodeManager,
+                metricsService);
     }
 
     @Test
@@ -56,8 +58,9 @@ class BatchFlushSchedulerTest {
 
         verify(jdbcTemplate, times(1)).batchUpdate(anyString(), anyList());
         verify(prefixIndexService, times(1)).applyDelta("iphone", 5L, now);
-        
-        // CacheNodeManager should be invalidated for all prefixes of the query: "i", "ip", "iph", "ipho", "iphon", "iphone"
+
+        // CacheNodeManager should be invalidated for all prefixes of the query: "i",
+        // "ip", "iph", "ipho", "iphon", "iphone"
         verify(cacheNodeManager, times(1)).invalidate("suggest:i:10");
         verify(cacheNodeManager, times(1)).invalidate("suggest:ip:10");
         verify(cacheNodeManager, times(1)).invalidate("suggest:iph:10");

@@ -1,5 +1,7 @@
 package com.lowkeyarhan.TypeAhead.modules.trending;
 
+import com.lowkeyarhan.TypeAhead.modules.trending.service.impl.RecencyAwareRankingStrategy;
+
 import com.lowkeyarhan.TypeAhead.common.config.RankingProperties;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCount;
 import com.lowkeyarhan.TypeAhead.modules.suggestion.dto.SuggestResultDTO;

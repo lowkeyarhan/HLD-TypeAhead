@@ -1,5 +1,8 @@
 package com.lowkeyarhan.TypeAhead.modules.search;
 
+import com.lowkeyarhan.TypeAhead.modules.search.controller.SearchController;
+import com.lowkeyarhan.TypeAhead.modules.search.service.SearchService;
+
 import com.lowkeyarhan.TypeAhead.modules.search.dto.SearchRequestDTO;
 import com.lowkeyarhan.TypeAhead.modules.search.dto.SearchResponseDTO;
 import org.junit.jupiter.api.BeforeEach;

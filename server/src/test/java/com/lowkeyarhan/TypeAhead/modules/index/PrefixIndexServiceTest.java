@@ -2,7 +2,8 @@ package com.lowkeyarhan.TypeAhead.modules.index;
 
 import com.lowkeyarhan.TypeAhead.common.metrics.MetricsService;
 import com.lowkeyarhan.TypeAhead.modules.data.QueryCount;
-import com.lowkeyarhan.TypeAhead.modules.data.QueryCountRepository;
+import com.lowkeyarhan.TypeAhead.modules.data.repository.QueryCountRepository;
+import com.lowkeyarhan.TypeAhead.modules.index.service.impl.PrefixIndexServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

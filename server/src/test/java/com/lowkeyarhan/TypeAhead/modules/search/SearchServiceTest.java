@@ -1,8 +1,9 @@
 package com.lowkeyarhan.TypeAhead.modules.search;
 
 import com.lowkeyarhan.TypeAhead.common.config.BatchProperties;
-import com.lowkeyarhan.TypeAhead.modules.batch.BatchFlushScheduler;
-import com.lowkeyarhan.TypeAhead.modules.batch.SearchEventBuffer;
+import com.lowkeyarhan.TypeAhead.modules.batch.service.BatchFlushScheduler;
+import com.lowkeyarhan.TypeAhead.modules.batch.service.SearchEventBuffer;
+import com.lowkeyarhan.TypeAhead.modules.search.service.impl.SearchServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
