@@ -1,0 +1,31 @@
+# Dependency directories
+node_modules/
+target/
+.next/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs and environment
+*.log
+.env
+.env*.local
+temp/
+
+# Spring boot specific files
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.sts4-cache
+build/
+bin/
