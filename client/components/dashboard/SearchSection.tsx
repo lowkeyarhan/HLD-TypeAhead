@@ -25,8 +25,8 @@ type SearchSectionProps = {
   activeIndex: number;
   onSuggestionHover: (index: number) => void;
   onSuggestionPick: (suggestion: Suggestion) => void;
-  submittedQuery: string;
-  submissionStatus: string;
+  submittedQuery: string | null;
+  submissionStatus: string | null;
 };
 
 function SuggestionRow({
@@ -100,18 +100,26 @@ export function SearchSection({
   submittedQuery,
   submissionStatus,
 }: SearchSectionProps) {
+  const hasSubmissionMeta = Boolean(submittedQuery || submissionStatus);
+
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="space-y-6">
       <div>
-        <p className="text-[0.76rem] font-medium uppercase tracking-[0.2em] text-[hsl(var(--text-muted-inverted))]">
+        <p className="text-[0.74rem] font-medium uppercase tracking-[0.22em] text-[hsl(var(--text-faint-inverted))]">
           {commandLabel}
         </p>
-        <h2 className="mt-3 max-w-2xl text-balance font-display text-[1.35rem] font-medium leading-[1.06] text-[hsl(var(--text-inverted))] sm:text-[1.75rem] lg:text-[2.2rem]">
+        <h2 className="mt-3 max-w-[24rem] text-balance font-display text-[1.3rem] font-medium leading-[1.05] text-[hsl(var(--text-inverted))] sm:text-[1.55rem] lg:text-[1.9rem]">
           {commandTitle}
         </h2>
       </div>
 
-      <div className="rounded-[28px] p-2" style={getSurfaceStyle("glass")}>
+      <div
+        className="rounded-[24px] p-2.5"
+        style={{
+          ...getSurfaceStyle("glass"),
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label className="sr-only" htmlFor="typeahead-query">
             Search query
@@ -130,14 +138,14 @@ export function SearchSection({
                 ? `${listboxId}-option-${activeIndex}`
                 : undefined
             }
-            className="h-14 flex-1 rounded-full bg-transparent px-5 text-[0.98rem] text-[hsl(var(--text-inverted))] outline-none placeholder:text-[hsl(var(--text-faint-inverted))] sm:h-16"
+            className="h-14 flex-1 rounded-full bg-transparent px-5 text-[0.96rem] text-[hsl(var(--text-inverted))] outline-none placeholder:text-[hsl(var(--text-faint-inverted))] sm:h-[3.75rem]"
           />
 
           <button
             type="button"
             onClick={onSubmit}
             disabled={isSubmitting}
-            className="inline-flex h-14 items-center justify-center rounded-full px-7 text-[0.94rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:h-16"
+            className="inline-flex h-14 items-center justify-center rounded-full px-6 text-[0.93rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:h-[3.75rem]"
             style={{
               backgroundColor: "#FAFBFE",
               color: "#120E14",
@@ -154,18 +162,20 @@ export function SearchSection({
         style={getSurfaceStyle("glass")}
       >
         <div className="flex items-center justify-between gap-4 px-2 pb-3">
-          <p className="text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted-inverted))]">
+          <p className="text-[0.74rem] font-medium uppercase tracking-[0.2em] text-[hsl(var(--text-faint-inverted))]">
             Suggestions
           </p>
           <div className="text-[0.82rem] text-[hsl(var(--text-muted-inverted))]">
             {isLoadingSuggestions
               ? "Loading..."
-              : `${suggestions.length} results`}
+              : suggestions.length > 0
+                ? `${suggestions.length} results`
+                : "Idle"}
           </div>
         </div>
 
         {suggestionsError ? (
-          <div className="rounded-[20px] bg-[rgba(255,255,255,0.04)] px-4 py-10 text-center">
+          <div className="rounded-[20px] bg-[rgba(255,255,255,0.035)] px-4 py-10 text-center">
             <div className="font-display text-[1rem] font-medium text-[hsl(var(--text-inverted))]">
               Suggestions unavailable
             </div>
@@ -191,7 +201,7 @@ export function SearchSection({
             ))}
           </div>
         ) : (
-          <div className="rounded-[20px] bg-[rgba(255,255,255,0.04)] px-4 py-10 text-center">
+          <div className="rounded-[20px] bg-[rgba(255,255,255,0.035)] px-4 py-10 text-center">
             <div className="font-display text-[1rem] font-medium text-[hsl(var(--text-inverted))]">
               {emptySuggestions}
             </div>
@@ -199,14 +209,23 @@ export function SearchSection({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-3 text-[0.88rem] text-[hsl(var(--text-inverted))]">
-          Last submitted: <span className="font-medium">{submittedQuery}</span>
+      {hasSubmissionMeta ? (
+        <div className="flex flex-wrap gap-3 text-[0.84rem] text-[hsl(var(--text-muted-inverted))]">
+          {submittedQuery ? (
+            <div className="rounded-full bg-[rgba(255,255,255,0.05)] px-4 py-2.5">
+              Last submitted:{" "}
+              <span className="font-medium text-[hsl(var(--text-inverted))]">
+                {submittedQuery}
+              </span>
+            </div>
+          ) : null}
+          {submissionStatus ? (
+            <div className="rounded-full bg-[rgba(255,255,255,0.05)] px-4 py-2.5">
+              {submissionStatus}
+            </div>
+          ) : null}
         </div>
-        <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-3 text-[0.88rem] text-[hsl(var(--text-inverted))]">
-          {submissionStatus}
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }

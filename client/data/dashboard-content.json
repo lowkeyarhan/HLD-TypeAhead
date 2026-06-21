@@ -6,8 +6,6 @@
   "commandTitle": "Search with fast feedback.",
   "searchPlaceholder": "Type a prefix to load live suggestions.",
   "emptySuggestions": "Start typing.",
-  "readyMessage": "Ready.",
-  "defaultQuery": "search typeahead architecture",
   "defaultCachePrefix": "search",
   "suggestLimit": 10,
   "trendingLimit": 8,

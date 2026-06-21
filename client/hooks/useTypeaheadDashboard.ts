@@ -35,11 +35,9 @@ export function useTypeaheadDashboard() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [submittedQuery, setSubmittedQuery] = useState(
-    dashboardContent.defaultQuery,
-  );
-  const [submissionMessage, setSubmissionMessage] = useState(
-    dashboardContent.readyMessage,
+  const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
+  const [submissionMessage, setSubmissionMessage] = useState<string | null>(
+    null,
   );
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,7 +210,7 @@ export function useTypeaheadDashboard() {
       setSubmissionError(null);
 
       try {
-        await fetchJson<SearchResponse>("/api/search", {
+        const response = await fetchJson<SearchResponse>("/api/search", {
           method: "POST",
           body: JSON.stringify({ query: finalQuery }),
         });
@@ -220,7 +218,7 @@ export function useTypeaheadDashboard() {
         setSubmittedQuery(finalQuery);
         setQuery(finalQuery);
         setDebouncedQuery(finalQuery);
-        setSubmissionMessage("Query submitted.");
+        setSubmissionMessage(response.message);
         setBackendOnline(true);
         await loadDashboard();
       } catch (error) {
@@ -317,7 +315,6 @@ export function useTypeaheadDashboard() {
   );
 
   const submissionStatus = submissionError ?? submissionMessage;
-  const backendStateColor = backendOnline ? successColor : errorColor;
   const cacheStateColor =
     cacheLookupResult.status === "Hit" ? successColor : errorColor;
 
@@ -350,7 +347,6 @@ export function useTypeaheadDashboard() {
     cacheError,
     cacheLookupResult,
     backendOnline,
-    backendStateColor,
     cacheStateColor,
   };
 }

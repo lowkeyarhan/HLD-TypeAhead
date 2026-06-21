@@ -30,33 +30,35 @@ export function TypeaheadDashboard() {
         </header>
 
         <section
-          className="rounded-[40px] p-5 text-[hsl(var(--text-inverted))] sm:p-6 lg:p-8"
+          className="rounded-[36px] p-5 text-[hsl(var(--text-inverted))] sm:p-7 lg:p-8"
           style={{
             background:
-              "radial-gradient(1100px circle at 50% 0%, rgba(255,255,255,0.10), rgba(0,0,0,0) 28%), #0E1014",
+              "radial-gradient(800px circle at 50% 0%, rgba(255,255,255,0.075), rgba(0,0,0,0) 34%), linear-gradient(180deg, #111318 0%, #0C0E12 100%)",
           }}
         >
-          <SearchSection
-            commandLabel={dashboardContent.commandLabel}
-            commandTitle={dashboardContent.commandTitle}
-            searchPlaceholder={dashboardContent.searchPlaceholder}
-            emptySuggestions={dashboardContent.emptySuggestions}
-            listboxId={dashboard.listboxId}
-            inputRef={dashboard.inputRef}
-            query={dashboard.query}
-            onQueryChange={dashboard.handleQueryChange}
-            onSearchKeyDown={dashboard.handleSearchKeyDown}
-            onSubmit={dashboard.handleSearchSubmit}
-            isSubmitting={dashboard.isSubmitting}
-            isLoadingSuggestions={dashboard.isLoadingSuggestions}
-            suggestions={dashboard.visibleSuggestions}
-            suggestionsError={dashboard.visibleSuggestionsError}
-            activeIndex={dashboard.activeIndex}
-            onSuggestionHover={dashboard.handleSuggestionHover}
-            onSuggestionPick={dashboard.handleSuggestionPick}
-            submittedQuery={dashboard.submittedQuery}
-            submissionStatus={dashboard.submissionStatus}
-          />
+          <div className="mx-auto w-full max-w-[860px]">
+            <SearchSection
+              commandLabel={dashboardContent.commandLabel}
+              commandTitle={dashboardContent.commandTitle}
+              searchPlaceholder={dashboardContent.searchPlaceholder}
+              emptySuggestions={dashboardContent.emptySuggestions}
+              listboxId={dashboard.listboxId}
+              inputRef={dashboard.inputRef}
+              query={dashboard.query}
+              onQueryChange={dashboard.handleQueryChange}
+              onSearchKeyDown={dashboard.handleSearchKeyDown}
+              onSubmit={dashboard.handleSearchSubmit}
+              isSubmitting={dashboard.isSubmitting}
+              isLoadingSuggestions={dashboard.isLoadingSuggestions}
+              suggestions={dashboard.visibleSuggestions}
+              suggestionsError={dashboard.visibleSuggestionsError}
+              activeIndex={dashboard.activeIndex}
+              onSuggestionHover={dashboard.handleSuggestionHover}
+              onSuggestionPick={dashboard.handleSuggestionPick}
+              submittedQuery={dashboard.submittedQuery}
+              submissionStatus={dashboard.submissionStatus}
+            />
+          </div>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
