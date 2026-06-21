@@ -14,10 +14,13 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.springframework.test.context.ActiveProfiles;
+
 // Integration tests for QueryCountRepository.
 // Integration tests requiring PostgreSQL running on localhost:5432.
 @SpringBootTest
 @Transactional
+@ActiveProfiles("test")
 class QueryCountRepositoryTest {
 
     @Autowired

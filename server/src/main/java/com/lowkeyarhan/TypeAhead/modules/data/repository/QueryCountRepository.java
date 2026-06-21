@@ -18,7 +18,7 @@ public interface QueryCountRepository extends JpaRepository<QueryCount, Long> {
         Optional<QueryCount> findByQueryText(String queryText);
 
         // Native upsert: inserts or increments counts for an existing query row.
-        @Modifying
+        @Modifying(clearAutomatically = true)
         @Query(value = "INSERT INTO query_count (query_text, total_count, recent_count, last_searched_at, created_at) "
                         +
                         "VALUES (:queryText, :totalCount, :recentCount, :lastSearchedAt, :createdAt) " +

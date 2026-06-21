@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:alpine
+    image: postgres:17-alpine
     container_name: typeahead-postgres
     restart: always
     environment:
@@ -10,10 +10,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: typeahead-redis
     restart: always
     ports:

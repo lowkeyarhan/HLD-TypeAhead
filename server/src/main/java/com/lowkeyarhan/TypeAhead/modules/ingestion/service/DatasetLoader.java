@@ -81,7 +81,7 @@ public class DatasetLoader implements ApplicationRunner {
         String sql = "INSERT INTO query_count (query_text, total_count, recent_count, last_searched_at, created_at) " +
                 "VALUES (?, ?, ?, ?, ?)";
         for (Map.Entry<String, Long> entry : aggregated.entrySet()) {
-            batchArgs.add(new Object[] { entry.getKey(), entry.getValue(), 0L, null, now });
+            batchArgs.add(new Object[] { entry.getKey(), entry.getValue(), 0L, null, java.sql.Timestamp.from(now) });
             if (batchArgs.size() == batchSize) {
                 jdbcTemplate.batchUpdate(sql, batchArgs);
                 totalInserted += batchArgs.size();

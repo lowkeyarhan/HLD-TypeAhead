@@ -1,5 +1,5 @@
 # Build stage
-FROM openjdk:26-slim AS build
+FROM eclipse-temurin:26-jdk AS build
 WORKDIR /app
 
 # Copy Maven wrapper and POM first
@@ -15,7 +15,7 @@ COPY src/ src/
 RUN ./mvnw package -DskipTests
 
 # Run stage - lightweight runtime
-FROM openjdk:26-slim
+FROM eclipse-temurin:26-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/TypeAhead-0.0.1-SNAPSHOT.jar app.jar
 
