@@ -52,6 +52,11 @@ type CacheLookupResult = {
   prefix: string;
 };
 
+type EndpointItem = {
+  label: string;
+  value: string;
+};
+
 const DEFAULT_QUERY = "search typeahead architecture";
 
 const commandShadowLight =
@@ -60,16 +65,13 @@ const commandShadowLight =
 const commandShadowDark =
   "0 7px 15px rgba(255,255,255,0.29), 0 26px 26px rgba(255,255,255,0.26), 0 59px 36px rgba(255,255,255,0.15), 0 106px 42px rgba(255,255,255,0.04), 0 165px 46px rgba(255,255,255,0.01)";
 
-const panelLight = "#F5F5F5";
-const panelDark = "#0F0F0F";
-const cardLight = "#FFFFFF";
-const cardDark = "#1F1F1F";
-const canvasLight = "#FEFEFE";
-const canvasDark = "#000000";
-const textPrimaryLight = "#120E14";
-const textPrimaryDark = "#FAFBFE";
-const textMutedLight = "#6B6A6E";
-const textMutedDark = "#94939A";
+const endpointItems: EndpointItem[] = [
+  { label: "Suggest", value: "GET /suggest?q=<prefix>&limit=<n>" },
+  { label: "Search", value: "POST /search" },
+  { label: "Trending", value: "GET /trending?limit=<n>" },
+  { label: "Metrics", value: "GET /metrics" },
+  { label: "Cache", value: "GET /cache/debug?prefix=<prefix>" },
+];
 
 function formatCount(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -90,18 +92,22 @@ function buildMetricBlocks(metrics: MetricsResponse | null): Metric[] {
     return [
       {
         label: "p95 Latency",
-        value: "—",
+        value: "Pending",
         detail: "Waiting for backend metrics",
       },
       {
         label: "Cache Hit Rate",
-        value: "—",
+        value: "Pending",
         detail: "Waiting for backend metrics",
       },
-      { label: "DB Reads", value: "—", detail: "Waiting for backend metrics" },
+      {
+        label: "DB Reads",
+        value: "Pending",
+        detail: "Waiting for backend metrics",
+      },
       {
         label: "Req / Flush",
-        value: "—",
+        value: "Pending",
         detail: "Waiting for backend metrics",
       },
     ];
@@ -116,17 +122,17 @@ function buildMetricBlocks(metrics: MetricsResponse | null): Metric[] {
     {
       label: "Cache Hit Rate",
       value: formatPercentage(metrics.overallCacheHitRate),
-      detail: "Combined hit rate across logical cache nodes",
+      detail: "Combined hit rate across logical nodes",
     },
     {
       label: "DB Reads",
       value: formatCount(metrics.dbReadCount),
-      detail: "Repository reads tracked by the service layer",
+      detail: "Repository reads recorded by the backend",
     },
     {
       label: "Req / Flush",
       value: metrics.requestsToFlushesRatio.toFixed(1),
-      detail: `Batching pressure, writes so far: ${formatCount(metrics.dbWriteCount)}`,
+      detail: `Batch flush pressure, writes: ${formatCount(metrics.dbWriteCount)}`,
     },
   ];
 }
@@ -158,75 +164,154 @@ async function fetchJson<T>(
   return data as T;
 }
 
+function surfaceStyle(tone: "muted" | "elevated" | "glass" | "inverted") {
+  switch (tone) {
+    case "elevated":
+      return { backgroundColor: "hsl(var(--bg-elevated))" };
+    case "glass":
+      return {
+        backgroundColor: "var(--glass-bg)",
+        border: "1px solid var(--glass-border)",
+        backdropFilter: "blur(12px)",
+      };
+    case "inverted":
+      return { backgroundColor: "hsl(var(--bg-inverted))" };
+    default:
+      return { backgroundColor: "hsl(var(--bg-muted))" };
+  }
+}
+
 function Panel({
   title,
   subtitle,
+  tone = "muted",
   children,
   className = "",
 }: {
   title: string;
   subtitle?: string;
+  tone?: "muted" | "elevated" | "glass" | "inverted";
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <section
-      className={`rounded-[28px] p-5 sm:p-6 ${className}`}
-      style={{ backgroundColor: "var(--panel-bg)" }}
+      className={`rounded-[24px] p-5 sm:p-6 ${className}`}
+      style={surfaceStyle(tone)}
     >
-      <div className="mb-5">
-        <h2
-          className="text-[1.05rem] sm:text-[1.15rem] font-medium"
-          style={{ fontFamily: "Gilroy, Inter, system-ui, sans-serif" }}
-        >
+      <header className="mb-5">
+        <p className="font-display text-[1.05rem] font-medium text-[hsl(var(--text-primary))]">
           {title}
-        </h2>
+        </p>
         {subtitle ? (
-          <p
-            className="mt-1 text-[0.92rem] leading-6"
-            style={{
-              color: "var(--text-muted)",
-              fontFamily: "Inter, system-ui, sans-serif",
-            }}
-          >
+          <p className="mt-1 max-w-[62ch] text-[0.92rem] leading-6 text-[hsl(var(--text-muted))]">
             {subtitle}
           </p>
         ) : null}
-      </div>
+      </header>
       {children}
     </section>
   );
 }
 
-function MetricBlock({ label, value, detail }: Metric) {
+function MetricCard({ label, value, detail }: Metric) {
   return (
     <div
-      className="rounded-[18px] p-4 sm:p-5"
-      style={{ backgroundColor: "var(--card-bg)" }}
+      className="rounded-[16px] p-4 sm:p-5"
+      style={{ backgroundColor: "hsl(var(--bg-elevated))" }}
     >
-      <div
-        className="text-[0.8rem] font-medium uppercase tracking-[0.18em]"
-        style={{
-          color: "var(--text-muted)",
-          fontFamily: "Inter, system-ui, sans-serif",
-        }}
-      >
+      <div className="text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
         {label}
       </div>
-      <div
-        className="mt-2 text-[1.4rem] sm:text-[1.7rem] font-medium"
-        style={{ fontFamily: "Gilroy, Inter, system-ui, sans-serif" }}
-      >
+      <div className="mt-2 font-display text-[1.35rem] font-medium text-[hsl(var(--text-primary))] sm:text-[1.65rem]">
         {value}
       </div>
-      <div
-        className="mt-2 text-[0.9rem] leading-6"
-        style={{
-          color: "var(--text-muted)",
-          fontFamily: "Inter, system-ui, sans-serif",
-        }}
-      >
+      <div className="mt-2 text-[0.9rem] leading-6 text-[hsl(var(--text-muted))]">
         {detail}
+      </div>
+    </div>
+  );
+}
+
+function NodeRateRow({ nodeId, rate }: { nodeId: string; rate: number }) {
+  return (
+    <div className="space-y-2 rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4">
+      <div className="flex items-center justify-between gap-4">
+        <span className="font-display text-[0.92rem] font-medium text-[hsl(var(--text-primary))]">
+          {nodeId}
+        </span>
+        <span className="text-[0.88rem] text-[hsl(var(--text-muted))]">
+          {formatPercentage(rate)}
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-[hsl(var(--bg-subtle))]">
+        <div
+          className="h-full rounded-full bg-[hsl(var(--accent-500))] transition-[width] duration-300"
+          style={{ width: `${Math.max(rate * 100, 4)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SuggestionRow({
+  suggestion,
+  selected,
+  isDark,
+  onMouseEnter,
+  onClick,
+}: {
+  suggestion: Suggestion;
+  selected: boolean;
+  isDark: boolean;
+  onMouseEnter: () => void;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      onMouseEnter={onMouseEnter}
+      onClick={onClick}
+      className="flex w-full items-center justify-between rounded-[16px] px-4 py-3 text-left transition-colors duration-200"
+      style={{
+        backgroundColor: selected
+          ? isDark
+            ? "#1F1F1F"
+            : "#FFFFFF"
+          : "transparent",
+      }}
+    >
+      <div className="min-w-0">
+        <div className="truncate font-display text-[0.98rem] font-medium text-[hsl(var(--text-inverted))]">
+          {suggestion.query}
+        </div>
+        <div className="mt-1 text-[0.82rem] text-[hsl(var(--text-muted-inverted))]">
+          Live prefix match from the backend
+        </div>
+      </div>
+      <div className="ml-4 rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-1 text-[0.8rem] text-[hsl(var(--text-muted-inverted))]">
+        {formatCount(suggestion.count)}
+      </div>
+    </button>
+  );
+}
+
+function HeroInfoCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[20px] p-4 sm:p-5" style={surfaceStyle("glass")}>
+      <div className="text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted-inverted))]">
+        {title}
+      </div>
+      <div className="mt-3 text-[0.92rem] leading-6 text-[hsl(var(--text-inverted))]">
+        {children}
       </div>
     </div>
   );
@@ -323,9 +408,8 @@ export default function App() {
       setCacheError(null);
 
       try {
-        const params = new URLSearchParams({ prefix, limit: "10" });
         const result = await fetchJson<CacheDebugResponse>(
-          `/api/cache-debug?${params.toString()}`,
+          `/api/cache-debug?${new URLSearchParams({ prefix, limit: "10" }).toString()}`,
         );
         setCacheLookupResult({
           nodeId: result.nodeId,
@@ -435,6 +519,10 @@ export default function App() {
     [handleSubmit],
   );
 
+  const hasActiveQuery = debouncedQuery.trim().length > 0;
+  const visibleSuggestions = hasActiveQuery ? suggestions : [];
+  const visibleSuggestionsError = hasActiveQuery ? suggestionsError : null;
+
   const onSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (visibleSuggestions.length === 0 && event.key !== "Enter") {
       return;
@@ -472,9 +560,7 @@ export default function App() {
   };
 
   const metricBlocks = useMemo(() => buildMetricBlocks(metrics), [metrics]);
-  const hasActiveQuery = debouncedQuery.trim().length > 0;
-  const visibleSuggestions = hasActiveQuery ? suggestions : [];
-  const visibleSuggestionsError = hasActiveQuery ? suggestionsError : null;
+
   const nodeRates = useMemo(
     () =>
       Object.entries(metrics?.perNodeCacheHitRates ?? {}).sort(
@@ -483,72 +569,59 @@ export default function App() {
     [metrics],
   );
 
-  const panelBg = isDark ? panelDark : panelLight;
-  const cardBg = isDark ? cardDark : cardLight;
-  const canvasBg = isDark ? canvasDark : canvasLight;
-  const textPrimary = isDark ? textPrimaryDark : textPrimaryLight;
-  const textMuted = isDark ? textMutedDark : textMutedLight;
+  const backendStateColor = backendOnline
+    ? isDark
+      ? "hsl(142 70% 52%)"
+      : "hsl(142 71% 45%)"
+    : isDark
+      ? "hsl(0 91% 71%)"
+      : "hsl(0 84% 60%)";
+
+  const cacheStateColor =
+    cacheLookupResult.status === "Hit"
+      ? isDark
+        ? "hsl(142 70% 52%)"
+        : "hsl(142 71% 45%)"
+      : isDark
+        ? "hsl(0 91% 71%)"
+        : "hsl(0 84% 60%)";
 
   return (
-    <div
-      className={isDark ? "dark" : ""}
-      style={
-        {
-          "--panel-bg": panelBg,
-          "--card-bg": cardBg,
-          "--canvas-bg": canvasBg,
-          "--text-primary": textPrimary,
-          "--text-muted": textMuted,
-        } as React.CSSProperties
-      }
-    >
-      <main
-        className="min-h-screen px-4 py-4 sm:px-6 sm:py-6 lg:px-8"
-        style={{
-          backgroundColor: "var(--canvas-bg)",
-          color: "var(--text-primary)",
-          fontFamily: "Inter, system-ui, sans-serif",
-        }}
-      >
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col gap-5 sm:gap-6">
-          <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className={isDark ? "dark" : ""}>
+      <main className="min-h-screen bg-[hsl(var(--bg-base))] px-4 py-4 text-[hsl(var(--text-primary))] sm:px-6 sm:py-6 lg:px-8">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1200px] flex-col gap-6">
+          <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
-              <p
-                className="text-[0.76rem] font-medium uppercase tracking-[0.24em]"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Search Typeahead
+              <p className="text-[0.78rem] font-medium uppercase tracking-[0.22em] text-[hsl(var(--text-muted))]">
+                TypeAhead
               </p>
-              <h1
-                className="mt-2 text-[1.55rem] sm:text-[2rem] lg:text-[2.4rem] font-medium"
-                style={{ fontFamily: "Gilroy, Inter, system-ui, sans-serif" }}
-              >
-                Frontend wired to the live suggestion, search, metrics, and
-                cache APIs.
+              <h1 className="mt-3 max-w-3xl text-balance font-display text-[1.85rem] font-medium leading-[1.02] text-[hsl(var(--text-primary))] sm:text-[2.35rem] lg:text-[3.2rem]">
+                Monotone search console for live suggestions, trending queries,
+                cache routing, and batch-write telemetry.
               </h1>
+              <p className="mt-4 max-w-[62ch] text-pretty text-[0.98rem] leading-7 text-[hsl(var(--text-muted))]">
+                The page stays quiet: white canvas, gray panels, black command
+                surfaces, and semantic color only where state matters.
+              </p>
             </div>
 
             <div className="flex items-center gap-3 self-start">
-              <div
-                className="rounded-full px-4 py-2 text-[0.85rem] font-medium"
-                style={{
-                  backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF",
-                  color: backendOnline ? "hsl(142 70% 45%)" : "hsl(0 72% 58%)",
-                  fontFamily: "Inter, system-ui, sans-serif",
-                }}
-              >
+              <div className="inline-flex items-center gap-2 rounded-full bg-[hsl(var(--bg-elevated))] px-4 py-2 text-[0.88rem] text-[hsl(var(--text-secondary))]">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: backendStateColor }}
+                />
                 {backendOnline ? "Backend connected" : "Backend unavailable"}
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsDark((value) => !value)}
-                className="rounded-full px-4 py-2 text-[0.9rem] font-medium transition-transform duration-200 hover:-translate-y-0.5"
+                className="inline-flex h-11 items-center justify-center rounded-full px-4 text-[0.9rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
                 style={{
                   backgroundColor: isDark ? "#FAFBFE" : "#171717",
                   color: isDark ? "#120E14" : "#FAFBFE",
                   boxShadow: isDark ? commandShadowDark : commandShadowLight,
-                  fontFamily: "Inter, system-ui, sans-serif",
                 }}
               >
                 {isDark ? "Light mode" : "Dark mode"}
@@ -557,44 +630,35 @@ export default function App() {
           </header>
 
           <section
-            className="rounded-[34px] p-5 sm:p-6 lg:p-8"
+            className="rounded-[40px] p-5 text-[hsl(var(--text-inverted))] sm:p-6 lg:p-8"
             style={{
               background: isDark
                 ? "radial-gradient(1200px circle at 50% 0%, rgba(255,255,255,0.045), rgba(0,0,0,0) 45%), #0F0F0F"
-                : "radial-gradient(1200px circle at 50% 0%, rgba(255,255,255,0.12), rgba(0,0,0,0.72) 46%, rgba(0,0,0,0.94) 100%)",
-              color: "#FAFBFE",
+                : "radial-gradient(1100px circle at 50% 0%, rgba(255,255,255,0.10), rgba(0,0,0,0) 28%), #0E1014",
             }}
           >
-            <div className="mx-auto flex max-w-4xl flex-col gap-6">
-              <div className="space-y-3">
-                <p
-                  className="text-[0.78rem] font-medium uppercase tracking-[0.22em] text-white/70"
-                  style={{ fontFamily: "Inter, system-ui, sans-serif" }}
-                >
-                  Live query surface
-                </p>
-                <h2
-                  className="max-w-2xl text-[1.6rem] sm:text-[2.1rem] lg:text-[2.8rem] font-medium"
-                  style={{ fontFamily: "Gilroy, Inter, system-ui, sans-serif" }}
-                >
-                  Query the backend directly, submit searches, and inspect the
-                  system state without leaving the page.
-                </h2>
-              </div>
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.9fr)]">
+              <div className="space-y-5">
+                <div>
+                  <p className="text-[0.76rem] font-medium uppercase tracking-[0.2em] text-[hsl(var(--text-muted-inverted))]">
+                    Command surface
+                  </p>
+                  <h2 className="mt-3 max-w-3xl text-balance font-display text-[1.55rem] font-medium leading-[1.04] text-[hsl(var(--text-inverted))] sm:text-[2rem] lg:text-[2.75rem]">
+                    Search with fast feedback, then watch the backend earn the
+                    result.
+                  </h2>
+                </div>
 
-              <div className="relative">
                 <div
-                  className="flex flex-col gap-3 rounded-full p-2 sm:flex-row sm:items-center"
-                  style={{
-                    backgroundColor: isDark
-                      ? "#1F1F1F"
-                      : "rgba(255,255,255,0.08)",
-                    backdropFilter: "blur(12px)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
+                  className="rounded-[28px] p-2"
+                  style={surfaceStyle("glass")}
                 >
-                  <div className="relative flex-1">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <label className="sr-only" htmlFor="typeahead-query">
+                      Search query
+                    </label>
                     <input
+                      id="typeahead-query"
                       ref={inputRef}
                       value={query}
                       onChange={(event) => {
@@ -613,496 +677,312 @@ export default function App() {
                           ? `${listboxId}-option-${activeIndex}`
                           : undefined
                       }
-                      className="h-14 w-full rounded-full bg-transparent px-5 pr-6 text-[1rem] outline-none placeholder:text-white/50 sm:h-16 sm:text-[1.02rem]"
-                      style={{
-                        color: "#FAFBFE",
-                        fontFamily: "Gilroy, Inter, system-ui, sans-serif",
-                      }}
+                      className="h-14 flex-1 rounded-full bg-transparent px-5 text-[0.98rem] text-[hsl(var(--text-inverted))] outline-none placeholder:text-[hsl(var(--text-faint-inverted))] sm:h-16"
                     />
-                    <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-white/35">
-                      <span className="text-sm">⌘</span>
-                    </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => void handleSubmit(query)}
-                    disabled={isSubmitting}
-                    className="inline-flex h-14 items-center justify-center rounded-full px-7 text-[0.95rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:h-16"
-                    style={{
-                      backgroundColor: isDark ? "#FAFBFE" : "#171717",
-                      color: isDark ? "#120E14" : "#FAFBFE",
-                      boxShadow: isDark
-                        ? commandShadowDark
-                        : commandShadowLight,
-                      fontFamily: "Gilroy, Inter, system-ui, sans-serif",
-                    }}
-                  >
-                    {isSubmitting ? "Submitting..." : "Search"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSubmit(query)}
+                      disabled={isSubmitting}
+                      className="inline-flex h-14 items-center justify-center rounded-full px-7 text-[0.94rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:h-16"
+                      style={{
+                        backgroundColor: isDark ? "#FAFBFE" : "#171717",
+                        color: isDark ? "#120E14" : "#FAFBFE",
+                        boxShadow: isDark
+                          ? commandShadowDark
+                          : commandShadowLight,
+                      }}
+                    >
+                      {isSubmitting ? "Submitting..." : "Search"}
+                    </button>
+                  </div>
                 </div>
 
                 <div
-                  className="absolute left-0 right-0 top-[calc(100%+0.75rem)] z-20 overflow-hidden rounded-[28px]"
-                  style={{
-                    backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF",
-                    boxShadow:
-                      "0 16px 44px rgba(0,0,0,0.10), 0 62px 88px rgba(0,0,0,0.12)",
-                  }}
+                  className="rounded-[26px] p-3 sm:p-4"
+                  style={surfaceStyle("glass")}
                 >
-                  <div className="flex items-center justify-between px-5 pt-4">
-                    <p
-                      className="text-[0.78rem] font-medium uppercase tracking-[0.18em]"
-                      style={{ color: "var(--text-muted)" }}
-                    >
+                  <div className="flex items-center justify-between gap-4 px-2 pb-3">
+                    <p className="text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted-inverted))]">
                       Suggestions
                     </p>
-                    <div
-                      className="text-[0.82rem]"
-                      style={{
-                        color: "var(--text-muted)",
-                        fontFamily: "Inter, system-ui, sans-serif",
-                      }}
-                    >
+                    <div className="text-[0.82rem] text-[hsl(var(--text-muted-inverted))]">
                       {isLoadingSuggestions
                         ? "Loading..."
                         : `${visibleSuggestions.length} results`}
                     </div>
                   </div>
 
-                  <div className="p-3">
-                    {visibleSuggestionsError ? (
-                      <div
-                        className="rounded-[22px] px-4 py-10 text-center"
-                        style={{
-                          backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF",
-                        }}
-                      >
-                        <div
-                          className="text-[0.95rem] font-medium"
-                          style={{
-                            fontFamily: "Gilroy, Inter, system-ui, sans-serif",
-                          }}
-                        >
-                          Suggestions unavailable
-                        </div>
-                        <div
-                          className="mt-2 text-[0.9rem]"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          {visibleSuggestionsError}
-                        </div>
+                  {visibleSuggestionsError ? (
+                    <div className="rounded-[20px] bg-[rgba(255,255,255,0.04)] px-4 py-10 text-center">
+                      <div className="font-display text-[1rem] font-medium text-[hsl(var(--text-inverted))]">
+                        Suggestions unavailable
                       </div>
-                    ) : visibleSuggestions.length > 0 ? (
-                      <div
-                        id={listboxId}
-                        role="listbox"
-                        aria-label="Search suggestions"
-                        className="space-y-2"
-                      >
-                        {visibleSuggestions.map((suggestion, index) => {
-                          const selected = index === activeIndex;
-
-                          return (
-                            <button
-                              key={`${suggestion.query}-${index}`}
-                              id={`${listboxId}-option-${index}`}
-                              role="option"
-                              aria-selected={selected}
-                              type="button"
-                              onMouseEnter={() => setActiveIndex(index)}
-                              onClick={() => handleSuggestionPick(suggestion)}
-                              className="flex w-full items-center justify-between rounded-[18px] px-4 py-3 text-left transition-colors duration-150"
-                              style={{
-                                backgroundColor: selected
-                                  ? isDark
-                                    ? "#2A2A2A"
-                                    : "#F2F2F2"
-                                  : isDark
-                                    ? "#1F1F1F"
-                                    : "#FFFFFF",
-                                color: "var(--text-primary)",
-                              }}
-                            >
-                              <div className="min-w-0">
-                                <div
-                                  className="truncate text-[0.96rem] font-medium"
-                                  style={{
-                                    fontFamily:
-                                      "Gilroy, Inter, system-ui, sans-serif",
-                                  }}
-                                >
-                                  {suggestion.query}
-                                </div>
-                                <div
-                                  className="mt-1 text-[0.8rem]"
-                                  style={{ color: "var(--text-muted)" }}
-                                >
-                                  Live prefix match from `/suggest`
-                                </div>
-                              </div>
-
-                              <div
-                                className="ml-4 shrink-0 rounded-full px-3 py-1 text-[0.8rem] font-medium"
-                                style={{
-                                  backgroundColor: isDark
-                                    ? "#0F0F0F"
-                                    : "#F5F5F5",
-                                  color: "var(--text-muted)",
-                                  fontFamily: "Inter, system-ui, sans-serif",
-                                }}
-                              >
-                                {formatCount(suggestion.count)}
-                              </div>
-                            </button>
-                          );
-                        })}
+                      <div className="mt-2 text-[0.9rem] text-[hsl(var(--text-muted-inverted))]">
+                        {visibleSuggestionsError}
                       </div>
+                    </div>
+                  ) : visibleSuggestions.length > 0 ? (
+                    <div
+                      id={listboxId}
+                      role="listbox"
+                      aria-label="Search suggestions"
+                      className="space-y-2"
+                    >
+                      {visibleSuggestions.map((suggestion, index) => (
+                        <SuggestionRow
+                          key={`${suggestion.query}-${index}`}
+                          suggestion={suggestion}
+                          selected={index === activeIndex}
+                          isDark={isDark}
+                          onMouseEnter={() => setActiveIndex(index)}
+                          onClick={() => handleSuggestionPick(suggestion)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-[20px] bg-[rgba(255,255,255,0.04)] px-4 py-10 text-center">
+                      <div className="font-display text-[1rem] font-medium text-[hsl(var(--text-inverted))]">
+                        Start typing to fetch live suggestions.
+                      </div>
+                      <div className="mt-2 text-[0.9rem] text-[hsl(var(--text-muted-inverted))]">
+                        The input waits 300ms before each backend request.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-3 text-[0.88rem] text-[hsl(var(--text-inverted))]">
+                    Last submitted:{" "}
+                    <span className="font-medium">{submittedQuery}</span>
+                  </div>
+                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-3 text-[0.88rem] text-[hsl(var(--text-inverted))]">
+                    {submissionError ?? submissionMessage}
+                  </div>
+                </div>
+              </div>
+
+              <aside className="grid gap-4 self-start">
+                <HeroInfoCard title="Request path">
+                  <span>
+                    Browser {"->"} Next proxy {"->"} Spring Boot {"->"} cache
+                    ring {"->"} prefix index {"->"} batch writer.
+                  </span>
+                </HeroInfoCard>
+
+                <HeroInfoCard title="Dataset mode">
+                  CSV is supported, but this repo currently falls back to the
+                  synthetic 100k query generator when the dataset file is not
+                  present.
+                </HeroInfoCard>
+
+                <HeroInfoCard title="API surface">
+                  <div className="space-y-2">
+                    {endpointItems.map((item) => (
+                      <div
+                        key={item.label}
+                        className="flex items-start justify-between gap-4"
+                      >
+                        <span className="text-[0.82rem] text-[hsl(var(--text-muted-inverted))]">
+                          {item.label}
+                        </span>
+                        <code className="text-right text-[0.82rem] text-[hsl(var(--text-inverted))]">
+                          {item.value}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                </HeroInfoCard>
+              </aside>
+            </div>
+          </section>
+
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+            <Panel
+              title="Runtime overview"
+              subtitle="Backend metrics stay first-class here. These cards read the same live counters the Spring service exposes."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {metricBlocks.map((metric) => (
+                  <MetricCard key={metric.label} {...metric} />
+                ))}
+              </div>
+
+              <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.9fr)]">
+                <div>
+                  <div className="mb-3 text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
+                    Logical node hit rates
+                  </div>
+                  <div className="space-y-3">
+                    {nodeRates.length > 0 ? (
+                      nodeRates.map(([nodeId, rate]) => (
+                        <NodeRateRow key={nodeId} nodeId={nodeId} rate={rate} />
+                      ))
                     ) : (
-                      <div
-                        className="rounded-[22px] px-4 py-10 text-center"
-                        style={{
-                          backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF",
-                        }}
-                      >
-                        <div
-                          className="text-[0.95rem] font-medium"
-                          style={{
-                            fontFamily: "Gilroy, Inter, system-ui, sans-serif",
-                          }}
-                        >
-                          Start typing to fetch live suggestions.
-                        </div>
-                        <div
-                          className="mt-2 text-[0.9rem]"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          The UI debounces input for 300ms before calling the
-                          backend.
-                        </div>
+                      <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 text-[0.92rem] text-[hsl(var(--text-muted))]">
+                        No node samples yet. Issue some suggestion requests to
+                        warm the cache.
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-3 pt-16">
-                <div
-                  className="rounded-full px-4 py-3 text-[0.9rem]"
-                  style={{
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(255,255,255,0.12)",
-                    color: "#FAFBFE",
-                    fontFamily: "Inter, system-ui, sans-serif",
-                  }}
-                >
-                  Last submitted:{" "}
-                  <span className="font-medium">{submittedQuery}</span>
+                <div className="space-y-3">
+                  <div className="text-[0.76rem] font-medium uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
+                    Useful links
+                  </div>
+                  <a
+                    href="http://localhost:8080/swagger-ui.html"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 transition-colors duration-200 hover:bg-[hsl(var(--bg-subtle))]"
+                  >
+                    <div className="font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
+                      Swagger UI
+                    </div>
+                    <div className="mt-1 text-[0.88rem] text-[hsl(var(--text-muted))]">
+                      Inspect the backend contract directly.
+                    </div>
+                  </a>
+                  <a
+                    href="http://localhost:8080/v3/api-docs"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 transition-colors duration-200 hover:bg-[hsl(var(--bg-subtle))]"
+                  >
+                    <div className="font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
+                      OpenAPI JSON
+                    </div>
+                    <div className="mt-1 text-[0.88rem] text-[hsl(var(--text-muted))]">
+                      Raw schema for integrations and review.
+                    </div>
+                  </a>
+                  <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4">
+                    <div className="font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
+                      Public frontend route
+                    </div>
+                    <div className="mt-1 text-[0.88rem] text-[hsl(var(--text-muted))]">
+                      Docker traffic is meant to enter through Caddy at
+                      `https://localhost`.
+                    </div>
+                  </div>
                 </div>
-
-                <div
-                  className="rounded-full px-4 py-3 text-[0.9rem]"
-                  style={{
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(255,255,255,0.12)",
-                    color: "#FAFBFE",
-                    fontFamily: "Inter, system-ui, sans-serif",
-                  }}
-                >
-                  {submissionError ?? submissionMessage}
-                </div>
               </div>
-            </div>
-          </section>
+            </Panel>
 
-          <div className="grid gap-5 lg:grid-cols-12">
-            <div className="lg:col-span-5">
+            <div className="grid gap-6">
               <Panel
-                title="Trending Searches"
-                subtitle="Live `/trending` results from the recency-aware ranking strategy."
+                title="Trending searches"
+                subtitle="These values come from the live recency-aware ranking route, not a static demo list."
               >
                 {dashboardError && trending.length === 0 ? (
-                  <div
-                    className="rounded-[18px] p-4 text-[0.92rem]"
-                    style={{
-                      backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF",
-                      color: "var(--text-muted)",
-                    }}
-                  >
+                  <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 text-[0.92rem] text-[hsl(var(--text-muted))]">
                     {dashboardError}
                   </div>
                 ) : isLoadingDashboard && trending.length === 0 ? (
-                  <div
-                    className="rounded-[18px] p-4 text-[0.92rem]"
-                    style={{
-                      backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF",
-                      color: "var(--text-muted)",
-                    }}
-                  >
+                  <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 text-[0.92rem] text-[hsl(var(--text-muted))]">
                     Loading trending queries...
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {trending.map((item) => (
+                  <div className="space-y-3">
+                    {trending.map((item, index) => (
                       <button
                         key={item.query}
                         type="button"
                         onClick={() => void handleSubmit(item.query)}
-                        className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[0.9rem] transition-transform duration-200 hover:-translate-y-0.5"
-                        style={{
-                          backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF",
-                          color: "var(--text-primary)",
-                          fontFamily: "Inter, system-ui, sans-serif",
-                        }}
+                        className="flex w-full items-center justify-between gap-4 rounded-[16px] bg-[hsl(var(--bg-elevated))] px-4 py-3 text-left transition-colors duration-200 hover:bg-[hsl(var(--bg-subtle))]"
                       >
-                        <span
-                          className="inline-block h-2 w-2 rounded-full"
-                          style={{
-                            backgroundColor: isDark ? "#C8C8C8" : "#4A4A4A",
-                          }}
-                        />
-                        <span className="truncate">{item.query}</span>
-                        <span style={{ color: "var(--text-muted)" }}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="w-7 text-[0.82rem] text-[hsl(var(--text-muted))]">
+                            {String(index + 1).padStart(2, "0")}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate font-display text-[0.96rem] font-medium text-[hsl(var(--text-primary))]">
+                              {item.query}
+                            </div>
+                            <div className="mt-1 text-[0.82rem] text-[hsl(var(--text-muted))]">
+                              Submit to re-run this search
+                            </div>
+                          </div>
+                        </div>
+                        <div className="rounded-full bg-[hsl(var(--bg-subtle))] px-3 py-1 text-[0.8rem] text-[hsl(var(--text-secondary))]">
                           {formatCount(item.count)}
-                        </span>
+                        </div>
                       </button>
                     ))}
                   </div>
                 )}
               </Panel>
-            </div>
 
-            <div className="lg:col-span-7">
               <Panel
-                title="System Diagnostics & Metrics"
-                subtitle="Live backend telemetry and cache node inspection."
+                title="Cache inspector"
+                subtitle="This calls the live cache-debug route and shows which logical node owns the current prefix."
               >
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {metricBlocks.map((metric) => (
-                    <MetricBlock key={metric.label} {...metric} />
-                  ))}
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    value={cachePrefix}
+                    onChange={(event) => setCachePrefix(event.target.value)}
+                    placeholder="Prefix, e.g. search"
+                    className="h-12 flex-1 rounded-full bg-[hsl(var(--bg-elevated))] px-4 text-[0.94rem] text-[hsl(var(--text-primary))] outline-none placeholder:text-[hsl(var(--text-faint))]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void resolveCacheNode()}
+                    disabled={isResolvingCache}
+                    className="inline-flex h-12 items-center justify-center rounded-full px-5 text-[0.92rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{
+                      backgroundColor: isDark ? "#FAFBFE" : "#171717",
+                      color: isDark ? "#120E14" : "#FAFBFE",
+                      boxShadow: isDark
+                        ? commandShadowDark
+                        : commandShadowLight,
+                    }}
+                  >
+                    {isResolvingCache ? "Resolving..." : "Resolve node"}
+                  </button>
                 </div>
 
-                <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                  <div
-                    className="rounded-[22px] p-4 sm:p-5"
-                    style={{ backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF" }}
-                  >
-                    <p
-                      className="text-[0.8rem] font-medium uppercase tracking-[0.18em]"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Cache debugger
-                    </p>
-                    <h3
-                      className="mt-2 text-[1.05rem] font-medium"
-                      style={{
-                        fontFamily: "Gilroy, Inter, system-ui, sans-serif",
-                      }}
-                    >
-                      Resolve the cache node for a prefix.
-                    </h3>
-                    <p
-                      className="mt-1 text-[0.92rem]"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Calls `/cache/debug` through the Next proxy and reports
-                      the routed node plus last hit status.
-                    </p>
-
-                    <div className="mt-4 flex w-full flex-col gap-3 sm:flex-row">
-                      <input
-                        value={cachePrefix}
-                        onChange={(event) => setCachePrefix(event.target.value)}
-                        placeholder="Prefix, e.g. search"
-                        className="h-12 w-full rounded-full px-4 text-[0.95rem] outline-none"
-                        style={{
-                          backgroundColor: isDark ? "#0F0F0F" : "#F5F5F5",
-                          color: "var(--text-primary)",
-                          fontFamily: "Inter, system-ui, sans-serif",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void resolveCacheNode()}
-                        disabled={isResolvingCache}
-                        className="h-12 rounded-full px-5 text-[0.92rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                        style={{
-                          backgroundColor: isDark ? "#FAFBFE" : "#171717",
-                          color: isDark ? "#120E14" : "#FAFBFE",
-                          boxShadow: isDark
-                            ? commandShadowDark
-                            : commandShadowLight,
-                          fontFamily: "Gilroy, Inter, system-ui, sans-serif",
-                        }}
-                      >
-                        {isResolvingCache ? "Resolving..." : "Resolve node"}
-                      </button>
+                {cacheError ? (
+                  <div className="mt-4 rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4 text-[0.92rem] text-[hsl(var(--text-muted))]">
+                    {cacheError}
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4">
+                      <div className="text-[0.76rem] uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
+                        Prefix
+                      </div>
+                      <div className="mt-2 font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
+                        {cacheLookupResult.prefix}
+                      </div>
                     </div>
 
-                    {cacheError ? (
-                      <div
-                        className="mt-4 rounded-[18px] p-4 text-[0.9rem]"
-                        style={{
-                          backgroundColor: isDark ? "#0F0F0F" : "#F5F5F5",
-                          color: "var(--text-muted)",
-                        }}
-                      >
-                        {cacheError}
+                    <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4">
+                      <div className="text-[0.76rem] uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
+                        Node
                       </div>
-                    ) : (
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div
-                          className="rounded-[18px] p-4"
-                          style={{
-                            backgroundColor: isDark ? "#0F0F0F" : "#F5F5F5",
-                          }}
-                        >
-                          <div
-                            className="text-[0.78rem] uppercase tracking-[0.16em]"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            Prefix
-                          </div>
-                          <div
-                            className="mt-2 text-[0.95rem] font-medium"
-                            style={{
-                              fontFamily:
-                                "Gilroy, Inter, system-ui, sans-serif",
-                            }}
-                          >
-                            {cacheLookupResult.prefix}
-                          </div>
-                        </div>
-
-                        <div
-                          className="rounded-[18px] p-4"
-                          style={{
-                            backgroundColor: isDark ? "#0F0F0F" : "#F5F5F5",
-                          }}
-                        >
-                          <div
-                            className="text-[0.78rem] uppercase tracking-[0.16em]"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            Cache Node ID
-                          </div>
-                          <div
-                            className="mt-2 text-[0.95rem] font-medium"
-                            style={{
-                              fontFamily:
-                                "Gilroy, Inter, system-ui, sans-serif",
-                            }}
-                          >
-                            {cacheLookupResult.nodeId}
-                          </div>
-                        </div>
-
-                        <div
-                          className="rounded-[18px] p-4"
-                          style={{
-                            backgroundColor: isDark ? "#0F0F0F" : "#F5F5F5",
-                          }}
-                        >
-                          <div
-                            className="text-[0.78rem] uppercase tracking-[0.16em]"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            Last lookup
-                          </div>
-                          <div
-                            className="mt-2 flex items-center gap-2 text-[0.95rem] font-medium"
-                            style={{
-                              fontFamily:
-                                "Gilroy, Inter, system-ui, sans-serif",
-                            }}
-                          >
-                            <span
-                              className="inline-block h-2.5 w-2.5 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  cacheLookupResult.status === "Hit"
-                                    ? "hsl(142 70% 52%)"
-                                    : "hsl(0 91% 71%)",
-                              }}
-                            />
-                            {cacheLookupResult.status}
-                          </div>
-                        </div>
+                      <div className="mt-2 font-display text-[0.98rem] font-medium text-[hsl(var(--text-primary))]">
+                        {cacheLookupResult.nodeId}
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  <div
-                    className="rounded-[22px] p-4 sm:p-5"
-                    style={{ backgroundColor: isDark ? "#1F1F1F" : "#FFFFFF" }}
-                  >
-                    <p
-                      className="text-[0.8rem] font-medium uppercase tracking-[0.18em]"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Per-node hit rates
-                    </p>
-                    <h3
-                      className="mt-2 text-[1.05rem] font-medium"
-                      style={{
-                        fontFamily: "Gilroy, Inter, system-ui, sans-serif",
-                      }}
-                    >
-                      Logical cache node breakdown
-                    </h3>
-                    <p
-                      className="mt-1 text-[0.92rem]"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Derived from `/metrics` to show how consistent hashing is
-                      distributing hot prefixes.
-                    </p>
-
-                    <div className="mt-4 space-y-3">
-                      {nodeRates.length > 0 ? (
-                        nodeRates.map(([nodeId, rate]) => (
-                          <div
-                            key={nodeId}
-                            className="flex items-center justify-between rounded-[18px] px-4 py-3"
-                            style={{
-                              backgroundColor: isDark ? "#0F0F0F" : "#F5F5F5",
-                            }}
-                          >
-                            <span
-                              className="text-[0.92rem] font-medium"
-                              style={{
-                                fontFamily:
-                                  "Gilroy, Inter, system-ui, sans-serif",
-                              }}
-                            >
-                              {nodeId}
-                            </span>
-                            <span
-                              className="text-[0.9rem]"
-                              style={{ color: "var(--text-muted)" }}
-                            >
-                              {formatPercentage(rate)}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div
-                          className="rounded-[18px] p-4 text-[0.92rem]"
-                          style={{
-                            backgroundColor: isDark ? "#0F0F0F" : "#F5F5F5",
-                            color: "var(--text-muted)",
-                          }}
-                        >
-                          No per-node samples yet. Issue some `/suggest`
-                          requests to warm the cache.
-                        </div>
-                      )}
+                    <div className="rounded-[16px] bg-[hsl(var(--bg-elevated))] p-4">
+                      <div className="text-[0.76rem] uppercase tracking-[0.18em] text-[hsl(var(--text-muted))]">
+                        Last lookup
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-[0.95rem] text-[hsl(var(--text-primary))]">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: cacheStateColor }}
+                        />
+                        <span className="font-display font-medium">
+                          {cacheLookupResult.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </Panel>
             </div>
           </div>

@@ -48,10 +48,24 @@ services:
     restart: always
     depends_on:
       - server
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       - TYPEAHEAD_API_BASE_URL=http://server:8080
+
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: typeahead-caddy
+    restart: always
+    depends_on:
+      - client
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/data:/data
+      - ./infra/caddy/config:/config
 
 volumes:
   postgres_data:

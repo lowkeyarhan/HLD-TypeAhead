@@ -6,6 +6,7 @@
 
 ```mermaid
 flowchart LR
+    Caddy["Caddy<br/>HTTPS reverse proxy"]
     Browser["Browser UI<br/>Next.js page"]
     Proxy["Next.js route handlers<br/>/api/* proxy layer"]
     Spring["Spring Boot backend"]
@@ -14,6 +15,9 @@ flowchart LR
     Buffer["Search event buffer"]
     Scheduler["Batch flush scheduler"]
     Postgres[("PostgreSQL query_count")]
+
+    Browser -->|HTTPS| Caddy
+    Caddy --> Browser
 
     Browser -->|GET /api/suggest| Proxy
     Browser -->|POST /api/search| Proxy
@@ -37,14 +41,16 @@ flowchart LR
 
 The delivered runtime shape is:
 
-1. The browser talks only to the Next.js app.
-2. Next.js route handlers under `client/app/api/*` proxy those calls to the Spring Boot backend.
-3. The Spring backend serves read traffic through a cache-first suggestion flow:
+1. The browser reaches the frontend through Caddy over HTTPS.
+2. Caddy reverse proxies the request to the Next.js app.
+3. The browser talks only to the Next.js app.
+4. Next.js route handlers under `client/app/api/*` proxy those calls to the Spring Boot backend.
+5. The Spring backend serves read traffic through a cache-first suggestion flow:
    - `SuggestionController` -> `SuggestionService`
    - `CacheNodeManager` routes keys with consistent hashing
    - cache miss falls through to `PrefixIndexService`
-4. Search submissions go through `SearchService`, which buffers events in memory and relies on scheduled batch flushes to reduce database writes.
-5. Metrics and cache-debug endpoints expose internal behavior for validation and reporting.
+6. Search submissions go through `SearchService`, which buffers events in memory and relies on scheduled batch flushes to reduce database writes.
+7. Metrics and cache-debug endpoints expose internal behavior for validation and reporting.
 
 Why the extra Next proxy layer exists:
 
