@@ -29,10 +29,10 @@ public class BatchFlushScheduler {
     private final AtomicLong flushCount;
 
     public BatchFlushScheduler(SearchEventBuffer searchEventBuffer,
-                               JdbcTemplate jdbcTemplate,
-                               PrefixIndexService prefixIndexService,
-                               CacheNodeManager cacheNodeManager,
-                               MetricsService metricsService) {
+            JdbcTemplate jdbcTemplate,
+            PrefixIndexService prefixIndexService,
+            CacheNodeManager cacheNodeManager,
+            MetricsService metricsService) {
         this.searchEventBuffer = searchEventBuffer;
         this.jdbcTemplate = jdbcTemplate;
         this.prefixIndexService = prefixIndexService;
@@ -61,7 +61,8 @@ public class BatchFlushScheduler {
         }
 
         try {
-            // RESILIENCE: events in buffer at crash time are lost (bounded to one flush interval). Acceptable for search count updates.
+            // RESILIENCE: events in buffer at crash time are lost (bounded to one flush
+            // interval). Acceptable for search count updates.
             Map<String, BufferedEvent> drained = searchEventBuffer.drainAndSwap();
 
             if (drained.isEmpty()) {
@@ -69,7 +70,8 @@ public class BatchFlushScheduler {
             }
 
             // Bulk upsert into PostgreSQL database
-            String sql = "INSERT INTO query_count (query_text, total_count, recent_count, last_searched_at, created_at) " +
+            String sql = "INSERT INTO query_count (query_text, total_count, recent_count, last_searched_at, created_at) "
+                    +
                     "VALUES (?, ?, ?, ?, ?) " +
                     "ON CONFLICT (query_text) DO UPDATE SET " +
                     "total_count = query_count.total_count + EXCLUDED.total_count, " +
@@ -91,12 +93,12 @@ public class BatchFlushScheduler {
                 String queryText = entry.getKey();
                 BufferedEvent event = entry.getValue();
                 prefixIndexService.applyDelta(queryText, event.count(), event.lastSeenAt());
-                // Invalidate all prefix cache keys for this query to ensure immediate consistency
+                // Invalidate all prefix cache keys for this query to ensure immediate
+                // consistency
                 for (int len = 1; len <= queryText.length(); len++) {
                     cacheNodeManager.invalidate("suggest:" + queryText.substring(0, len) + ":10");
                 }
             }
-
 
             long distinctQueries = drained.size();
             long totalIncrements = drained.values().stream().mapToLong(BufferedEvent::count).sum();
@@ -104,7 +106,8 @@ public class BatchFlushScheduler {
             long flushes = flushCount.incrementAndGet();
             double ratio = flushes > 0 ? (double) totalReqs / flushes : 0.0;
 
-            log.info("Flush #{} completed: {} distinct queries, {} total increments. Running requests-to-flushes ratio: {} ({} requests / {} flushes)",
+            log.info(
+                    "Flush #{} completed: {} distinct queries, {} total increments. Running requests-to-flushes ratio: {} ({} requests / {} flushes)",
                     flushes, distinctQueries, totalIncrements, String.format("%.2f", ratio), totalReqs, flushes);
 
         } catch (Exception e) {

@@ -11,16 +11,16 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
-    @Bean
-    public OpenAPI typeAheadOpenApi() {
-        return new OpenAPI()
-                .info(new Info()
-                        .title("TypeAhead API")
-                        .description("High-Level Design: distributed search typeahead with consistent hashing, recency-aware ranking, and batch write buffering")
-                        .version("1.0.0")
-                        .contact(new Contact()
-                                .name("lowkeyarhan")
-                                .url("https://github.com/lowkeyarhan/HLD-TypeAhead"))
-                        .license(new License().name("MIT")));
-    }
+        @Bean
+        public OpenAPI typeAheadOpenApi() {
+                return new OpenAPI()
+                                .info(new Info()
+                                                .title("TypeAhead API")
+                                                .description("High-Level Design: distributed search typeahead with consistent hashing, recency-aware ranking, and batch write buffering")
+                                                .version("1.0.0")
+                                                .contact(new Contact()
+                                                                .name("lowkeyarhan")
+                                                                .url("https://github.com/lowkeyarhan/HLD-TypeAhead"))
+                                                .license(new License().name("MIT")));
+        }
 }
